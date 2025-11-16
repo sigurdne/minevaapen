@@ -1,5 +1,12 @@
 # MineVåpen - Planleggingsdokument
 
+## Status (oppdatert fortløpende)
+
+- [x] Expo-prosjekt initialisert med TypeScript, expo-router og grunnleggende lint-oppsett.
+- [x] SQLite-database etablert med schema og seeding av organisasjoner og skyteprogram.
+- [x] I18n-struktur flyttet fra plan til kodebasen med faktiske språkfiler.
+- [ ] UI-komponenter koblet til lokalt lagrede data og kontrollerte tester.
+
 ## 1. Formål og visjon
 
 MineVåpen skal gi sportsskyttere full kontroll over egne våpen, tilknyttede skyteprogram og nødvendig dokumentasjon. Appen skal gjøre det enkelt å se hva som er godkjent, hva som er registrert som reserve, og hva som må oppdateres.

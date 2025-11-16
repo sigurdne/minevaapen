@@ -4,9 +4,11 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ensureSeeded } from '@/src/database/seed';
+import '@/src/i18n';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -15,6 +17,7 @@ export const unstable_settings = {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [databaseReady, setDatabaseReady] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     let isMounted = true;
@@ -37,7 +40,7 @@ export default function RootLayout() {
   if (!databaseReady) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator />
+        <ActivityIndicator accessibilityLabel={t('common.loading')} />
       </View>
     );
   }
@@ -46,7 +49,10 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen
+          name="modal"
+          options={{ presentation: 'modal', title: t('navigation.modalTitle') }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
