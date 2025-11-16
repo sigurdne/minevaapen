@@ -64,6 +64,7 @@ export default function HomeScreen() {
     colorScheme === 'dark' ? styles.filterHeaderDark : styles.filterHeaderLight;
   const filterSummaryThemeStyle =
     colorScheme === 'dark' ? styles.filterSummaryDark : styles.filterSummaryLight;
+  const cardThemeStyle = colorScheme === 'dark' ? styles.cardDark : styles.cardLight;
 
   const organizationOptions = useMemo(
     () => [
@@ -200,7 +201,7 @@ export default function HomeScreen() {
 
       return (
         <ThemedView
-          style={styles.card}
+          style={[styles.card, cardThemeStyle]}
           lightColor="#ffffff"
           darkColor="rgba(255,255,255,0.05)"
         >
@@ -257,7 +258,7 @@ export default function HomeScreen() {
         </ThemedView>
       );
     },
-    [t]
+    [cardThemeStyle, t]
   );
 
   return (
@@ -387,8 +388,6 @@ export default function HomeScreen() {
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <ThemedText accessibilityRole="alert">{t('weapons.list.error')}</ThemedText>
-          <ThemedText style={styles.errorDetails}>{error.message}</ThemedText>
           <Pressable onPress={handleRefresh} style={styles.retryButton}>
             <ThemedText style={styles.retryText}>{t('common.retry')}</ThemedText>
           </Pressable>
@@ -516,6 +515,24 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     gap: 12,
+  },
+  cardLight: {
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+    shadowColor: 'rgba(15, 23, 42, 0.2)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  cardDark: {
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    shadowColor: 'rgba(0, 0, 0, 0.9)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
