@@ -1,0 +1,44 @@
+# Node/Expo
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.expo/
+.expo-shared/
+.expo-cache/
+dist/
+web-build/
+
+# Expo Go cache
+*.expo-dev-client
+
+# macOS/Linux
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.*
+
+# Build outputs
+android/
+ios/
+
+# Package managers (keep lockfiles tracked)
+# pnpm-lock.yaml
+# yarn.lock
+# package-lock.json
+
+# Others
+.expo-dev-server/
+coverage/
