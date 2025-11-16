@@ -6,6 +6,7 @@
 - [x] SQLite-database etablert med schema og seeding av organisasjoner og skyteprogram.
 - [x] I18n-struktur flyttet fra plan til kodebasen med faktiske språkfiler.
 - [ ] UI-komponenter koblet til lokalt lagrede data og kontrollerte tester.
+- [ ] Våpenliste, filtrering, registrering og eksport etablert.
 
 ## 1. Formål og visjon
 
@@ -126,3 +127,10 @@ MineVåpen skal gi sportsskyttere full kontroll over egne våpen, tilknyttede sk
 4. Bygg en MVP-backlog med prioriterte brukerhistorier og estimater.
 5. Implementer kritiske skjermbilder i React Native: våpenliste, registrering og filtrering.
 6. Design sikkerhetsmekanismer (kryptert lagring, passkode/biometri) og plan for secrets-håndtering i React Native.
+
+## Iterasjon: Våpenhåndtering og backup
+
+- [x] Utvide SQLite-schema med våpen og programkoblinger, inkludert basis-seeding.
+- [x] Bygge repository/hooks for våpen og programstatistikk med filtreringsstøtte og CSV-eksport.
+- [ ] Oppdatere startskjermen til våpenlisten med filterkontroller og redigeringsflyt.
+- [ ] Etablere skjermer for våpenregistrering, redigering og innstillinger med backup/eksport.

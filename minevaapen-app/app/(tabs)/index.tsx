@@ -1,98 +1,437 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { useTranslation } from 'react-i18next';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import type { WeaponWithPrograms } from '@/src/database/weapons-repository';
+import { useOrganizations } from '@/src/hooks/use-organizations';
+import { usePrograms } from '@/src/hooks/use-programs';
+import { useWeapons } from '@/src/hooks/use-weapons';
+
+type ReserveFilterValue = 'any' | 'reserveOnly' | 'nonReserve';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const { t } = useTranslation();
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
+  const [reserveFilter, setReserveFilter] = useState<ReserveFilterValue>('any');
+  const [refreshing, setRefreshing] = useState(false);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
+  const {
+    organizations,
+    loading: organizationsLoading,
+    error: organizationsError,
+  } = useOrganizations();
+  const {
+    programs,
+    loading: programsLoading,
+    error: programsError,
+    refresh: refreshPrograms,
+  } = usePrograms(selectedOrganizationId);
+  const {
+    weapons,
+    loading: weaponsLoading,
+    error: weaponsError,
+    refresh: refreshWeapons,
+  } = useWeapons({
+    organizationId: selectedOrganizationId,
+    programId: selectedProgramId,
+    reserveFilter,
+  });
+
+  const organizationOptions = useMemo(
+    () => [
+      { id: null, label: t('weapons.filters.organizations.all') },
+      ...organizations.map((org) => ({
+        id: org.id,
+        label: org.shortName ? org.shortName : org.name,
+      })),
+    ],
+    [organizations, t]
+  );
+
+  const programOptions = useMemo(
+    () => [
+      { id: null, label: t('weapons.filters.programs.all'), weaponCount: 0, reserveCount: 0 },
+      ...programs.map((program) => ({
+        id: program.id,
+        label: program.name,
+        weaponCount: program.weaponCount,
+        reserveCount: program.reserveCount,
+      })),
+    ],
+    [programs, t]
+  );
+
+  const reserveOptions = useMemo(
+    () => [
+      { value: 'any' as ReserveFilterValue, label: t('weapons.filters.reserve.any') },
+      { value: 'reserveOnly' as ReserveFilterValue, label: t('weapons.filters.reserve.only') },
+      { value: 'nonReserve' as ReserveFilterValue, label: t('weapons.filters.reserve.none') },
+    ],
+    [t]
+  );
+
+  const selectedProgramSummary = useMemo(() => {
+    if (!selectedProgramId) {
+      return null;
+    }
+
+    const match = programs.find((program) => program.id === selectedProgramId);
+    if (!match) {
+      return null;
+    }
+
+    return t('weapons.programSummary', {
+      name: match.name,
+      weaponCount: match.weaponCount,
+      reserveCount: match.reserveCount,
+    });
+  }, [programs, selectedProgramId, t]);
+
+  const isLoading = organizationsLoading || programsLoading || weaponsLoading;
+  const error = weaponsError ?? programsError ?? organizationsError;
+
+  const handleSelectOrganization = useCallback(
+    (id: string | null) => {
+      setSelectedOrganizationId((previous) => {
+        const next = previous === id ? null : id;
+        return next;
+      });
+      setSelectedProgramId(null);
+    },
+    []
+  );
+
+  const handleSelectProgram = useCallback((id: string | null) => {
+    setSelectedProgramId((previous) => (previous === id ? null : id));
+  }, []);
+
+  const handleSelectReserve = useCallback((value: ReserveFilterValue) => {
+    setReserveFilter((previous) => (previous === value ? 'any' : value));
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refreshWeapons(), refreshPrograms()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshPrograms, refreshWeapons]);
+
+  const renderWeapon = useCallback(
+    ({ item }: { item: WeaponWithPrograms }) => {
+      const typeLabel = t(`weapons.types.${item.type}` as const, {
+        defaultValue: item.type,
+      });
+
+      const manufacturerModel =
+        item.manufacturer && item.model
+          ? t('weapons.card.manufacturerModel', {
+              manufacturer: item.manufacturer,
+              model: item.model,
+            })
+          : item.manufacturer ?? item.model ?? null;
+
+      return (
+        <ThemedView
+          style={styles.card}
+          lightColor="#ffffff"
+          darkColor="rgba(255,255,255,0.05)"
+        >
+          <View style={styles.cardHeader}>
+            <ThemedText type="subtitle" style={styles.cardTitle}>
+              {item.displayName}
+            </ThemedText>
+            <ThemedText style={styles.typeBadge}>{typeLabel}</ThemedText>
+          </View>
+
+          {manufacturerModel ? (
+            <ThemedText style={styles.metaText}>{manufacturerModel}</ThemedText>
+          ) : null}
+
+          {item.serialNumber ? (
+            <ThemedText style={styles.metaText}>
+              {t('weapons.card.serialNumber', { serial: item.serialNumber })}
+            </ThemedText>
+          ) : null}
+
+          <View style={styles.programsContainer}>
+            <ThemedText style={styles.programsTitle}>
+              {t('weapons.card.programsTitle')}
+            </ThemedText>
+
+            {item.programs.length === 0 ? (
+              <ThemedText style={styles.metaText}>{t('weapons.card.noPrograms')}</ThemedText>
+            ) : (
+              item.programs.map((program) => (
+                <View key={`${item.id}-${program.programId}`} style={styles.programRow}>
+                  <ThemedText style={styles.programName}>{program.programName}</ThemedText>
+                  {program.isReserve ? (
+                    <ThemedText style={styles.reserveBadge}>
+                      {t('weapons.card.reserveBadge')}
+                    </ThemedText>
+                  ) : null}
+                </View>
+              ))
+            )}
+          </View>
+        </ThemedView>
+      );
+    },
+    [t]
+  );
+
+  return (
+    <ThemedView style={styles.container}>
+      <View style={styles.header}>
+        <ThemedText type="title" style={styles.title}>
+          {t('weapons.title')}
         </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <ThemedText style={styles.subtitle}>{t('weapons.subtitle')}</ThemedText>
+      </View>
+
+      <View style={styles.filtersSection}>
+        <View style={styles.filterGroup}>
+          <ThemedText type="subtitle" style={styles.filterTitle}>
+            {t('weapons.filters.organizations.title')}
+          </ThemedText>
+          <View style={styles.filterRow}>
+            {organizationOptions.map((option) => (
+              <FilterChip
+                key={option.id ?? 'all-organizations'}
+                label={option.label}
+                selected={selectedOrganizationId === option.id}
+                onPress={() => handleSelectOrganization(option.id)}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.filterGroup}>
+          <ThemedText type="subtitle" style={styles.filterTitle}>
+            {t('weapons.filters.programs.title')}
+          </ThemedText>
+          <View style={styles.filterRow}>
+            {programOptions.map((option) => (
+              <FilterChip
+                key={option.id ?? 'all-programs'}
+                label={option.label}
+                selected={selectedProgramId === option.id}
+                onPress={() => handleSelectProgram(option.id)}
+              />
+            ))}
+          </View>
+          {selectedProgramSummary ? (
+            <ThemedText style={styles.programSummary}>{selectedProgramSummary}</ThemedText>
+          ) : null}
+        </View>
+
+        <View style={styles.filterGroup}>
+          <ThemedText type="subtitle" style={styles.filterTitle}>
+            {t('weapons.filters.reserve.title')}
+          </ThemedText>
+          <View style={styles.filterRow}>
+            {reserveOptions.map((option) => (
+              <FilterChip
+                key={option.value}
+                label={option.label}
+                selected={reserveFilter === option.value}
+                onPress={() => handleSelectReserve(option.value)}
+              />
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {isLoading ? (
+        <View style={styles.center}>
+          <ActivityIndicator accessibilityLabel={t('common.loading')} />
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <ThemedText accessibilityRole="alert">{t('weapons.list.error')}</ThemedText>
+          <ThemedText style={styles.errorDetails}>{error.message}</ThemedText>
+          <Pressable onPress={handleRefresh} style={styles.retryButton}>
+            <ThemedText style={styles.retryText}>{t('common.retry')}</ThemedText>
+          </Pressable>
+        </View>
+      ) : (
+        <FlatList
+          data={weapons}
+          keyExtractor={(item) => item.id}
+          renderItem={renderWeapon}
+          contentContainerStyle={
+            weapons.length === 0 ? [styles.center, styles.emptyContainer] : styles.listContent
+          }
+          ListEmptyComponent={<ThemedText>{t('weapons.list.empty')}</ThemedText>}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="gray"
+            />
+          }
+        />
+      )}
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+    gap: 16,
+  },
+  header: {
     alignItems: 'center',
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  title: {
+    textAlign: 'center',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  subtitle: {
+    textAlign: 'center',
+    opacity: 0.7,
+  },
+  filtersSection: {
+    gap: 16,
+  },
+  filterGroup: {
+    gap: 8,
+  },
+  filterTitle: {
+    fontSize: 18,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  emptyContainer: {
+    flexGrow: 1,
+  },
+  listContent: {
+    paddingBottom: 32,
+    gap: 12,
+  },
+  card: {
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
+  cardTitle: {
+    flex: 1,
+    marginRight: 12,
+  },
+  typeBadge: {
+    fontSize: 14,
+    fontWeight: '600',
+    opacity: 0.8,
+  },
+  metaText: {
+    opacity: 0.8,
+  },
+  programsContainer: {
+    gap: 6,
+  },
+  programsTitle: {
+    fontWeight: '600',
+    opacity: 0.9,
+  },
+  programRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  programName: {
+    flex: 1,
+    marginRight: 8,
+  },
+  reserveBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 149, 0, 0.2)',
+    overflow: 'hidden',
+  },
+  programSummary: {
+    marginTop: 4,
+    fontSize: 14,
+    opacity: 0.7,
+  },
+  retryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  retryText: {
+    fontWeight: '600',
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'transparent',
+  },
+  chipSelected: {
+    backgroundColor: 'rgba(37, 99, 235, 0.15)',
+    borderColor: 'rgba(37, 99, 235, 0.5)',
+  },
+  chipText: {
+    fontSize: 14,
+    opacity: 0.85,
+  },
+  chipTextSelected: {
+    fontWeight: '600',
+    opacity: 1,
+  },
+  errorDetails: {
+    fontSize: 12,
+    opacity: 0.7,
+    textAlign: 'center',
   },
 });
+
+type FilterChipProps = {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+};
+
+function FilterChip({ label, selected, onPress }: FilterChipProps) {
+  return (
+    <Pressable onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}>
+      <ThemedText style={[styles.chipText, selected && styles.chipTextSelected]}>
+        {label}
+      </ThemedText>
+    </Pressable>
+  );
+}

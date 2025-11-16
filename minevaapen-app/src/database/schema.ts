@@ -18,3 +18,30 @@ export const createProgramsTable = `
     FOREIGN KEY (organizationId) REFERENCES organizations(id)
   );
 `;
+
+export const createWeaponsTable = `
+  CREATE TABLE IF NOT EXISTS weapons (
+    id TEXT PRIMARY KEY NOT NULL,
+    displayName TEXT NOT NULL,
+    type TEXT NOT NULL,
+    manufacturer TEXT,
+    model TEXT,
+    serialNumber TEXT,
+    acquisitionDate TEXT,
+    acquisitionPrice REAL,
+    weaponCardRef TEXT,
+    notes TEXT
+  );
+`;
+
+export const createWeaponProgramsTable = `
+  CREATE TABLE IF NOT EXISTS weapon_programs (
+    weaponId TEXT NOT NULL,
+    programId TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'approved',
+    isReserve INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (weaponId, programId),
+    FOREIGN KEY (weaponId) REFERENCES weapons(id) ON DELETE CASCADE,
+    FOREIGN KEY (programId) REFERENCES programs(id) ON DELETE CASCADE
+  );
+`;
