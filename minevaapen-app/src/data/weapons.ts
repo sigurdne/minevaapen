@@ -1,7 +1,7 @@
 export type WeaponSeed = {
   id: string;
   displayName: string;
-  type: 'pistol' | 'rifle' | 'shotgun' | 'carbine' | 'combined';
+  type: 'pistol' | 'revolver' | 'rifle' | 'shotgun';
   manufacturer?: string;
   model?: string;
   serialNumber?: string;

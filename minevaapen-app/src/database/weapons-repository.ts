@@ -77,6 +77,50 @@ export const fetchWeapons = async (
   }));
 };
 
+export const fetchWeaponById = async (weaponId: string): Promise<WeaponWithPrograms | null> => {
+  const sql = `
+    SELECT
+      w.id,
+      w.displayName,
+      w.type,
+      w.manufacturer,
+      w.model,
+      w.serialNumber,
+      w.acquisitionDate,
+      w.acquisitionPrice,
+      w.weaponCardRef,
+      w.notes,
+      IFNULL(json_group_array(
+        CASE
+          WHEN p.id IS NOT NULL THEN json_object(
+            'programId', p.id,
+            'programName', p.name,
+            'organizationId', p.organizationId,
+            'isReserve', wp.isReserve,
+            'status', wp.status
+          )
+        END
+      ), '[]') AS programsJson
+    FROM weapons w
+    LEFT JOIN weapon_programs wp ON wp.weaponId = w.id
+    LEFT JOIN programs p ON p.id = wp.programId
+    WHERE w.id = ?
+    GROUP BY w.id
+  `;
+
+  const result = await runSql<WeaponQueryRow>(sql, [weaponId]);
+  const row = result.rows[0];
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    ...row,
+    programs: parsePrograms(row.programsJson),
+  };
+};
+
 const buildWeaponQuery = (filters: WeaponFilters) => {
   const conditions: string[] = [];
   const params: SQLiteBindParams = [];
@@ -173,8 +217,8 @@ export const fetchProgramUsage = async (
       p.organizationId,
       p.weaponCategory,
       p.isReserveAllowed,
-      COUNT(wp.weaponId) AS weaponCount,
-      SUM(CASE WHEN wp.isReserve = 1 THEN 1 ELSE 0 END) AS reserveCount
+      SUM(CASE WHEN wp.status = 'approved' THEN 1 ELSE 0 END) AS weaponCount,
+      SUM(CASE WHEN wp.status = 'approved' AND wp.isReserve = 1 THEN 1 ELSE 0 END) AS reserveCount
     FROM programs p
     LEFT JOIN weapon_programs wp ON wp.programId = p.id
     ${whereClause}

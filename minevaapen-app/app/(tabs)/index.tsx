@@ -1,16 +1,19 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
+import { Link, useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { WeaponWithPrograms } from '@/src/database/weapons-repository';
 import { useOrganizations } from '@/src/hooks/use-organizations';
 import { usePrograms } from '@/src/hooks/use-programs';
@@ -24,6 +27,8 @@ export default function HomeScreen() {
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [reserveFilter, setReserveFilter] = useState<ReserveFilterValue>('any');
   const [refreshing, setRefreshing] = useState(false);
+  const [organizationsExpanded, setOrganizationsExpanded] = useState(false);
+  const [programsExpanded, setProgramsExpanded] = useState(false);
 
   const {
     organizations,
@@ -46,6 +51,19 @@ export default function HomeScreen() {
     programId: selectedProgramId,
     reserveFilter,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshWeapons();
+      void refreshPrograms();
+    }, [refreshPrograms, refreshWeapons])
+  );
+
+  const colorScheme = useColorScheme();
+  const filterHeaderThemeStyle =
+    colorScheme === 'dark' ? styles.filterHeaderDark : styles.filterHeaderLight;
+  const filterSummaryThemeStyle =
+    colorScheme === 'dark' ? styles.filterSummaryDark : styles.filterSummaryLight;
 
   const organizationOptions = useMemo(
     () => [
@@ -80,6 +98,24 @@ export default function HomeScreen() {
     [t]
   );
 
+  const selectedOrganizationLabel = useMemo(() => {
+    if (!selectedOrganizationId) {
+      return null;
+    }
+
+    const match = organizationOptions.find((option) => option.id === selectedOrganizationId);
+    return match?.label ?? selectedOrganizationId;
+  }, [organizationOptions, selectedOrganizationId]);
+
+  const selectedProgramLabel = useMemo(() => {
+    if (!selectedProgramId) {
+      return null;
+    }
+
+    const match = programOptions.find((option) => option.id === selectedProgramId);
+    return match?.label ?? selectedProgramId;
+  }, [programOptions, selectedProgramId]);
+
   const selectedProgramSummary = useMemo(() => {
     if (!selectedProgramId) {
       return null;
@@ -96,6 +132,18 @@ export default function HomeScreen() {
       reserveCount: match.reserveCount,
     });
   }, [programs, selectedProgramId, t]);
+
+  useEffect(() => {
+    if (selectedOrganizationId) {
+      setOrganizationsExpanded(true);
+    }
+  }, [selectedOrganizationId]);
+
+  useEffect(() => {
+    if (selectedProgramId) {
+      setProgramsExpanded(true);
+    }
+  }, [selectedProgramId]);
 
   const isLoading = organizationsLoading || programsLoading || weaponsLoading;
   const error = weaponsError ?? programsError ?? organizationsError;
@@ -117,6 +165,14 @@ export default function HomeScreen() {
 
   const handleSelectReserve = useCallback((value: ReserveFilterValue) => {
     setReserveFilter((previous) => (previous === value ? 'any' : value));
+  }, []);
+
+  const toggleOrganizationsExpanded = useCallback(() => {
+    setOrganizationsExpanded((prev) => !prev);
+  }, []);
+
+  const toggleProgramsExpanded = useCallback(() => {
+    setProgramsExpanded((prev) => !prev);
   }, []);
 
   const handleRefresh = useCallback(async () => {
@@ -185,6 +241,19 @@ export default function HomeScreen() {
               ))
             )}
           </View>
+
+          <View style={styles.cardActions}>
+            <Link
+              href={{ pathname: '/weapon/manage', params: { weaponId: item.id } }}
+              asChild
+            >
+              <Pressable style={styles.editButton}>
+                <ThemedText style={styles.editButtonText}>
+                  {t('weapons.card.edit')}
+                </ThemedText>
+              </Pressable>
+            </Link>
+          </View>
         </ThemedView>
       );
     },
@@ -198,41 +267,100 @@ export default function HomeScreen() {
           {t('weapons.title')}
         </ThemedText>
         <ThemedText style={styles.subtitle}>{t('weapons.subtitle')}</ThemedText>
+        <Link href="/weapon/manage" asChild>
+          <Pressable style={styles.primaryButton}>
+            <ThemedText style={styles.primaryButtonText}>
+              {t('weapons.actions.add')}
+            </ThemedText>
+          </Pressable>
+        </Link>
       </View>
 
       <View style={styles.filtersSection}>
         <View style={styles.filterGroup}>
-          <ThemedText type="subtitle" style={styles.filterTitle}>
-            {t('weapons.filters.organizations.title')}
-          </ThemedText>
-          <View style={styles.filterRow}>
-            {organizationOptions.map((option) => (
-              <FilterChip
-                key={option.id ?? 'all-organizations'}
-                label={option.label}
-                selected={selectedOrganizationId === option.id}
-                onPress={() => handleSelectOrganization(option.id)}
-              />
-            ))}
-          </View>
+          <Pressable
+            onPress={toggleOrganizationsExpanded}
+            style={[styles.filterHeader, filterHeaderThemeStyle]}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: organizationsExpanded }}
+          >
+            <ThemedText type="subtitle" style={styles.filterTitle}>
+              {t('weapons.filters.organizations.title')}
+            </ThemedText>
+            <ThemedText style={styles.filterToggleText}>
+              {organizationsExpanded
+                ? t('weapons.filters.toggle.hide')
+                : t('weapons.filters.toggle.show')}
+            </ThemedText>
+          </Pressable>
+          {!organizationsExpanded && selectedOrganizationLabel ? (
+            <ThemedText style={[styles.filterSummary, filterSummaryThemeStyle]}>
+              {t('weapons.filters.selected', { value: selectedOrganizationLabel })}
+            </ThemedText>
+          ) : null}
+          {organizationsExpanded ? (
+            <View style={styles.filterBody}>
+              <View style={styles.filterRow}>
+                {organizationOptions.map((option) => (
+                  <FilterChip
+                    key={option.id ?? 'all-organizations'}
+                    label={option.label}
+                    selected={selectedOrganizationId === option.id}
+                    onPress={() => handleSelectOrganization(option.id)}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.filterGroup}>
-          <ThemedText type="subtitle" style={styles.filterTitle}>
-            {t('weapons.filters.programs.title')}
-          </ThemedText>
-          <View style={styles.filterRow}>
-            {programOptions.map((option) => (
-              <FilterChip
-                key={option.id ?? 'all-programs'}
-                label={option.label}
-                selected={selectedProgramId === option.id}
-                onPress={() => handleSelectProgram(option.id)}
-              />
-            ))}
-          </View>
-          {selectedProgramSummary ? (
-            <ThemedText style={styles.programSummary}>{selectedProgramSummary}</ThemedText>
+          <Pressable
+            onPress={toggleProgramsExpanded}
+            style={[styles.filterHeader, filterHeaderThemeStyle]}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: programsExpanded }}
+          >
+            <ThemedText type="subtitle" style={styles.filterTitle}>
+              {t('weapons.filters.programs.title')}
+            </ThemedText>
+            <ThemedText style={styles.filterToggleText}>
+              {programsExpanded
+                ? t('weapons.filters.toggle.hide')
+                : t('weapons.filters.toggle.show')}
+            </ThemedText>
+          </Pressable>
+          {!programsExpanded ? (
+            selectedProgramSummary ? (
+              <ThemedText style={[styles.filterSummary, filterSummaryThemeStyle]}>
+                {selectedProgramSummary}
+              </ThemedText>
+            ) : selectedProgramLabel ? (
+              <ThemedText style={[styles.filterSummary, filterSummaryThemeStyle]}>
+                {t('weapons.filters.selected', { value: selectedProgramLabel })}
+              </ThemedText>
+            ) : null
+          ) : null}
+          {programsExpanded ? (
+            <View style={styles.filterBody}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterRowScroll}
+              >
+                {programOptions.map((option) => (
+                  <FilterChip
+                    key={option.id ?? 'all-programs'}
+                    label={option.label}
+                    selected={selectedProgramId === option.id}
+                    onPress={() => handleSelectProgram(option.id)}
+                  />
+                ))}
+              </ScrollView>
+              {selectedProgramSummary ? (
+                <ThemedText style={styles.programSummary}>{selectedProgramSummary}</ThemedText>
+              ) : null}
+            </View>
           ) : null}
         </View>
 
@@ -305,19 +433,71 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.7,
   },
+  primaryButton: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(37, 99, 235, 0.25)',
+  },
+  primaryButtonText: {
+    fontWeight: '700',
+  },
   filtersSection: {
     gap: 16,
   },
   filterGroup: {
-    gap: 8,
+    gap: 6,
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  filterHeaderDark: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  filterHeaderLight: {
+    backgroundColor: 'rgba(15, 23, 42, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.08)',
   },
   filterTitle: {
     fontSize: 18,
+  },
+  filterToggleText: {
+    fontWeight: '600',
+    fontSize: 13,
+    opacity: 0.75,
+  },
+  filterBody: {
+    marginTop: 8,
+    gap: 8,
+  },
+  filterSummary: {
+    marginTop: 6,
+    fontSize: 13,
+  },
+  filterSummaryDark: {
+    color: 'rgba(226, 232, 240, 0.85)',
+  },
+  filterSummaryLight: {
+    color: 'rgba(15, 23, 42, 0.75)',
   },
   filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  filterRowScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingRight: 8,
   },
   center: {
     flex: 1,
@@ -391,6 +571,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.1)',
   },
   retryText: {
+    fontWeight: '600',
+  },
+  cardActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  editButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(37, 99, 235, 0.15)',
+  },
+  editButtonText: {
     fontWeight: '600',
   },
   chip: {

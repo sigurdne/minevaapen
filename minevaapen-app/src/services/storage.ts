@@ -11,9 +11,10 @@ const DATABASE_NAME = 'minevaapen.db';
 const DB_PATH = FileSystem.Paths.join(SQLITE_DIRECTORY, DATABASE_NAME);
 
 const ensureDirectory = async (path: string) => {
-  const info = await FileSystem.getInfoAsync(path);
+  const info = FileSystem.Paths.info(path);
   if (!info.exists) {
-    await FileSystem.makeDirectoryAsync(path, { intermediates: true });
+    const directory = new FileSystem.Directory(path);
+    directory.create({ intermediates: true, idempotent: true });
   }
 };
 
@@ -27,17 +28,85 @@ export const backupDatabase = async (): Promise<string> => {
   await ensureDirectory(BACKUP_DIRECTORY);
   const targetPath = `${BACKUP_DIRECTORY}/minevaapen-backup-${timestamp()}.db`;
 
-  const databaseInfo = await FileSystem.getInfoAsync(DB_PATH);
+  const databaseFile = new FileSystem.File(DB_PATH);
+  const databaseInfo = databaseFile.info();
   if (!databaseInfo.exists) {
     throw new Error('Database not found');
   }
 
-  await FileSystem.copyAsync({
-    from: DB_PATH,
-    to: targetPath,
-  });
+  const backupFile = new FileSystem.File(targetPath);
+  databaseFile.copy(backupFile);
 
   return targetPath;
+};
+
+export type BackupFile = {
+  name: string;
+  path: string;
+  modifiedAt: number;
+};
+
+const toBackupFile = (file: FileSystem.File): BackupFile | null => {
+  const info = file.info();
+
+  if (!info.exists) {
+    return null;
+  }
+
+  return {
+    name: file.name,
+    path: file.uri,
+    modifiedAt: typeof info.modificationTime === 'number' ? info.modificationTime : 0,
+  };
+};
+
+export const listBackupFiles = async (): Promise<BackupFile[]> => {
+  await ensureDirectory(BACKUP_DIRECTORY);
+  const directory = new FileSystem.Directory(BACKUP_DIRECTORY);
+  const entries = directory.list();
+  const files = entries.filter((entry): entry is FileSystem.File => entry instanceof FileSystem.File);
+
+  const backups = files.map(toBackupFile);
+
+  return backups
+    .filter((file): file is BackupFile => file !== null)
+    .sort((a, b) => b.modifiedAt - a.modifiedAt);
+};
+
+type RestoreDatabaseOptions = {
+  sourcePath?: string;
+};
+
+export const restoreDatabase = async (
+  options: RestoreDatabaseOptions = {}
+): Promise<BackupFile> => {
+  const backups = await listBackupFiles();
+
+  if (backups.length === 0) {
+    throw new Error('No backups found');
+  }
+
+  let selectedBackup: BackupFile | undefined;
+
+  if (options.sourcePath) {
+    selectedBackup = backups.find((backup) => backup.path === options.sourcePath);
+    if (!selectedBackup) {
+      throw new Error('Selected backup not found');
+    }
+  } else {
+    selectedBackup = backups[0];
+  }
+
+  await ensureDirectory(SQLITE_DIRECTORY);
+  const databaseFile = new FileSystem.File(DB_PATH);
+  if (FileSystem.Paths.info(DB_PATH).exists) {
+    databaseFile.delete();
+  }
+
+  const selectedFile = new FileSystem.File(selectedBackup.path);
+  selectedFile.copy(databaseFile);
+
+  return selectedBackup;
 };
 
 type CsvValue = string | number | null | undefined;
@@ -74,12 +143,13 @@ export const exportWeaponsToCsv = async (): Promise<string> => {
     'weaponCardRef',
     'notes',
     'programs',
+    'reserve',
   ];
 
   const rows = weapons.map((weapon) => {
-    const programString = weapon.programs
-      .map((program) => `${program.programName}${program.isReserve ? ' (reserve)' : ''}`)
-      .join('; ');
+    const approvedPrograms = weapon.programs.filter((program) => program.status === 'approved');
+    const programString = approvedPrograms.map((program) => program.programName).join('; ');
+    const reserveMark = approvedPrograms.some((program) => program.isReserve) ? 'X' : '';
 
     return [
       weapon.id,
@@ -93,6 +163,7 @@ export const exportWeaponsToCsv = async (): Promise<string> => {
       weapon.weaponCardRef,
       weapon.notes,
       programString,
+      reserveMark,
     ]
       .map(toCsvValue)
       .join(',');
@@ -100,8 +171,8 @@ export const exportWeaponsToCsv = async (): Promise<string> => {
 
   const csvContent = [headers.join(','), ...rows].join('\n');
   const filePath = `${EXPORT_DIRECTORY}/minevaapen-weapons-${timestamp()}.csv`;
-
-  await FileSystem.writeAsStringAsync(filePath, csvContent, { encoding: 'utf8' });
+  const file = new FileSystem.File(filePath);
+  file.write(csvContent, { encoding: 'utf8' });
 
   return filePath;
 };

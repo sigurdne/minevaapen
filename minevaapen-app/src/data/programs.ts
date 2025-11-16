@@ -2,7 +2,7 @@ export type ProgramSeed = {
   id: string;
   organizationId: string;
   name: string;
-  weaponCategory: 'pistol' | 'rifle' | 'shotgun' | 'carbine' | 'combined';
+  weaponCategory: 'pistol' | 'revolver' | 'rifle' | 'shotgun';
   isReserveAllowed: boolean;
 };
 
@@ -12,17 +12,17 @@ export const programSeeds: ProgramSeed[] = [
   { id: '3', organizationId: '943942102', name: 'Felt', weaponCategory: 'rifle', isReserveAllowed: true },
   { id: '4', organizationId: '943942102', name: 'Felthurtig', weaponCategory: 'rifle', isReserveAllowed: true },
   { id: '5', organizationId: '943942102', name: 'Stangskyting', weaponCategory: 'rifle', isReserveAllowed: true },
-  { id: '6', organizationId: '943942102', name: 'Skogsløp med skyting', weaponCategory: 'combined', isReserveAllowed: true },
+  { id: '6', organizationId: '943942102', name: 'Skogsløp med skyting', weaponCategory: 'rifle', isReserveAllowed: true },
   { id: '7', organizationId: '943942102', name: 'Skifelt', weaponCategory: 'rifle', isReserveAllowed: true },
   { id: '159', organizationId: '943942102', name: 'Kikkertklassen', weaponCategory: 'rifle', isReserveAllowed: true },
 
   { id: '8', organizationId: '988539155', name: 'Open (pistol)', weaponCategory: 'pistol', isReserveAllowed: true },
   { id: '9', organizationId: '988539155', name: 'Standard (pistol)', weaponCategory: 'pistol', isReserveAllowed: true },
   { id: '10', organizationId: '988539155', name: 'Classic', weaponCategory: 'pistol', isReserveAllowed: true },
-  { id: '11', organizationId: '988539155', name: 'Revolver', weaponCategory: 'pistol', isReserveAllowed: true },
+  { id: '11', organizationId: '988539155', name: 'Revolver', weaponCategory: 'revolver', isReserveAllowed: true },
   { id: '13', organizationId: '988539155', name: 'Semi Auto Open', weaponCategory: 'shotgun', isReserveAllowed: true },
   { id: '14', organizationId: '988539155', name: 'Semi Auto Standard', weaponCategory: 'shotgun', isReserveAllowed: true },
-  { id: '17', organizationId: '988539155', name: 'Pistol Caliber Carbine (PCC)', weaponCategory: 'carbine', isReserveAllowed: true },
+  { id: '17', organizationId: '988539155', name: 'Pistol Caliber Carbine (PCC)', weaponCategory: 'rifle', isReserveAllowed: true },
   { id: '18', organizationId: '988539155', name: 'Open (hagle)', weaponCategory: 'shotgun', isReserveAllowed: true },
   { id: '19', organizationId: '988539155', name: 'Modified', weaponCategory: 'shotgun', isReserveAllowed: true },
   { id: '20', organizationId: '988539155', name: 'Standard (hagle)', weaponCategory: 'shotgun', isReserveAllowed: true },
@@ -48,18 +48,18 @@ export const programSeeds: ProgramSeed[] = [
   { id: '68', organizationId: '946168114', name: 'Finfelt', weaponCategory: 'pistol', isReserveAllowed: true },
   { id: '69', organizationId: '946168114', name: 'Grovfelt', weaponCategory: 'pistol', isReserveAllowed: true },
   { id: '70', organizationId: '946168114', name: 'Militærfelt', weaponCategory: 'pistol', isReserveAllowed: true },
-  { id: '71', organizationId: '946168114', name: 'Revolverfelt', weaponCategory: 'pistol', isReserveAllowed: true },
-  { id: '72', organizationId: '946168114', name: 'Magnum 1', weaponCategory: 'pistol', isReserveAllowed: true },
-  { id: '73', organizationId: '946168114', name: 'Magnum 2', weaponCategory: 'pistol', isReserveAllowed: true },
+  { id: '71', organizationId: '946168114', name: 'Revolverfelt', weaponCategory: 'revolver', isReserveAllowed: true },
+  { id: '72', organizationId: '946168114', name: 'Magnum 1', weaponCategory: 'revolver', isReserveAllowed: true },
+  { id: '73', organizationId: '946168114', name: 'Magnum 2', weaponCategory: 'revolver', isReserveAllowed: true },
   { id: '74', organizationId: '946168114', name: 'Spesialpistol', weaponCategory: 'pistol', isReserveAllowed: true },
-  { id: '75', organizationId: '946168114', name: 'Spesialrevolver', weaponCategory: 'pistol', isReserveAllowed: true },
-  { id: '77', organizationId: '946168114', name: 'Revolver 1500', weaponCategory: 'pistol', isReserveAllowed: true },
+  { id: '75', organizationId: '946168114', name: 'Spesialrevolver', weaponCategory: 'revolver', isReserveAllowed: true },
+  { id: '77', organizationId: '946168114', name: 'Revolver 1500', weaponCategory: 'revolver', isReserveAllowed: true },
   { id: '78', organizationId: '946168114', name: 'Pistol 1500', weaponCategory: 'pistol', isReserveAllowed: true },
   { id: '79', organizationId: '946168114', name: 'Open (PPC)', weaponCategory: 'pistol', isReserveAllowed: true },
   { id: '80', organizationId: '946168114', name: 'Distinguished Pistol', weaponCategory: 'pistol', isReserveAllowed: true },
-  { id: '81', organizationId: '946168114', name: 'Distinguished Revolver 6 tommer', weaponCategory: 'pistol', isReserveAllowed: true },
-  { id: '82', organizationId: '946168114', name: 'Standard Revolver 2,75 tommer', weaponCategory: 'pistol', isReserveAllowed: true },
-  { id: '83', organizationId: '946168114', name: 'Standard Revolver 2,75 tommer - 5 skudds tønne', weaponCategory: 'pistol', isReserveAllowed: true },
+  { id: '81', organizationId: '946168114', name: 'Distinguished Revolver 6 tommer', weaponCategory: 'revolver', isReserveAllowed: true },
+  { id: '82', organizationId: '946168114', name: 'Standard Revolver 2,75 tommer', weaponCategory: 'revolver', isReserveAllowed: true },
+  { id: '83', organizationId: '946168114', name: 'Standard Revolver 2,75 tommer - 5 skudds tønne', weaponCategory: 'revolver', isReserveAllowed: true },
   { id: '84', organizationId: '946168114', name: '15m', weaponCategory: 'rifle', isReserveAllowed: true },
   { id: '85', organizationId: '946168114', name: '50m 60 skudd liggende', weaponCategory: 'rifle', isReserveAllowed: true },
   { id: '86', organizationId: '946168114', name: '50m helmatch (3 posisjoner)', weaponCategory: 'rifle', isReserveAllowed: true },
