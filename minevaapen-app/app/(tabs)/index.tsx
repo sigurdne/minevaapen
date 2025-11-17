@@ -20,12 +20,38 @@ import { usePrograms } from '@/src/hooks/use-programs';
 import { useWeapons } from '@/src/hooks/use-weapons';
 
 type ReserveFilterValue = 'any' | 'reserveOnly' | 'nonReserve';
+type OwnershipFilterValue = 'all' | 'own' | 'loanIn' | 'loanOut';
+
+const formatLoanDate = (value: string | null, locale: string) => {
+  if (!value) {
+    return null;
+  }
+
+  const [year, month, day] = value.split('-').map(Number);
+  if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
+    return value;
+  }
+
+  const date = new Date(year, month - 1, day);
+
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(date);
+  } catch (error) {
+    console.warn('Failed to format loan date, returning ISO', error);
+    return value;
+  }
+};
 
 export default function HomeScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [reserveFilter, setReserveFilter] = useState<ReserveFilterValue>('any');
+  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilterValue>('all');
   const [refreshing, setRefreshing] = useState(false);
   const [organizationsExpanded, setOrganizationsExpanded] = useState(false);
   const [programsExpanded, setProgramsExpanded] = useState(false);
@@ -50,6 +76,7 @@ export default function HomeScreen() {
     organizationId: selectedOrganizationId,
     programId: selectedProgramId,
     reserveFilter,
+    ownershipFilter,
   });
 
   useFocusEffect(
@@ -95,6 +122,15 @@ export default function HomeScreen() {
       { value: 'any' as ReserveFilterValue, label: t('weapons.filters.reserve.any') },
       { value: 'reserveOnly' as ReserveFilterValue, label: t('weapons.filters.reserve.only') },
       { value: 'nonReserve' as ReserveFilterValue, label: t('weapons.filters.reserve.none') },
+    ],
+    [t]
+  );
+
+  const ownershipOptions = useMemo(
+    () => [
+      { value: 'own' as OwnershipFilterValue, label: t('weapons.filters.ownership.own') },
+      { value: 'loanIn' as OwnershipFilterValue, label: t('weapons.filters.ownership.loanIn') },
+      { value: 'loanOut' as OwnershipFilterValue, label: t('weapons.filters.ownership.loanOut') },
     ],
     [t]
   );
@@ -168,6 +204,10 @@ export default function HomeScreen() {
     setReserveFilter((previous) => (previous === value ? 'any' : value));
   }, []);
 
+  const handleSelectOwnership = useCallback((value: OwnershipFilterValue) => {
+    setOwnershipFilter((previous) => (previous === value ? 'all' : value));
+  }, []);
+
   const toggleOrganizationsExpanded = useCallback(() => {
     setOrganizationsExpanded((prev) => !prev);
   }, []);
@@ -187,10 +227,23 @@ export default function HomeScreen() {
 
   const renderWeapon = useCallback(
     ({ item }: { item: WeaponWithPrograms }) => {
+      const locale = i18n.language || 'nb-NO';
       const typeLabel = t(`weapons.types.${item.type}` as const, {
         defaultValue: item.type,
       });
-      const approvedProgramId = item.programs.find((program) => program.status === 'approved')?.programId;
+      const approvedProgramId =
+        item.programs.find((program) => program.status === 'approved')?.programId;
+      const loanBadge =
+        item.ownershipStatus === 'loanIn'
+          ? t('weapons.card.loanInBadge')
+          : item.ownershipStatus === 'loanOut'
+          ? t('weapons.card.loanOutBadge')
+          : null;
+      const formattedLoanStart = formatLoanDate(item.loanStartDate, locale);
+      const formattedLoanEnd = formatLoanDate(item.loanEndDate, locale);
+      const showLoanInfo =
+        item.ownershipStatus !== 'own' &&
+        (item.loanContactName || formattedLoanStart || formattedLoanEnd);
 
       const manufacturerModel =
         item.manufacturer && item.model
@@ -210,7 +263,10 @@ export default function HomeScreen() {
             <ThemedText type="subtitle" style={styles.cardTitle}>
               {item.displayName}
             </ThemedText>
-            <ThemedText style={styles.typeBadge}>{typeLabel}</ThemedText>
+            <View style={styles.cardBadgeColumn}>
+              <ThemedText style={styles.typeBadge}>{typeLabel}</ThemedText>
+              {loanBadge ? <ThemedText style={styles.loanBadge}>{loanBadge}</ThemedText> : null}
+            </View>
           </View>
 
           {manufacturerModel ? (
@@ -221,6 +277,24 @@ export default function HomeScreen() {
             <ThemedText style={styles.metaText}>
               {t('weapons.card.serialNumber', { serial: item.serialNumber })}
             </ThemedText>
+          ) : null}
+
+          {showLoanInfo ? (
+            <View style={styles.loanInfoBox}>
+              {item.loanContactName ? (
+                <ThemedText style={styles.loanInfoText}>
+                  {t('weapons.card.loanContact', { name: item.loanContactName })}
+                </ThemedText>
+              ) : null}
+              {formattedLoanStart || formattedLoanEnd ? (
+                <ThemedText style={styles.loanInfoText}>
+                  {t('weapons.card.loanPeriod', {
+                    start: formattedLoanStart ?? t('weapons.card.loanDateUnknown'),
+                    end: formattedLoanEnd ?? t('weapons.card.loanDateUnknown'),
+                  })}
+                </ThemedText>
+              ) : null}
+            </View>
           ) : null}
 
           <View style={styles.programsContainer}>
@@ -234,10 +308,16 @@ export default function HomeScreen() {
               item.programs.map((program) => (
                 <View
                   key={`${item.id}-${program.programId}`}
-                  style={[styles.programRow, program.programId === approvedProgramId && styles.programRowApproved]}
+                  style={[
+                    styles.programRow,
+                    program.programId === approvedProgramId && styles.programRowApproved,
+                  ]}
                 >
                   <ThemedText
-                    style={[styles.programName, program.programId === approvedProgramId && styles.programNameApproved]}
+                    style={[
+                      styles.programName,
+                      program.programId === approvedProgramId && styles.programNameApproved,
+                    ]}
                   >
                     {program.programName}
                   </ThemedText>
@@ -273,7 +353,7 @@ export default function HomeScreen() {
         </ThemedView>
       );
     },
-    [cardThemeStyle, t]
+    [cardThemeStyle, i18n.language, t]
   );
 
   return (
@@ -391,6 +471,22 @@ export default function HomeScreen() {
                 label={option.label}
                 selected={reserveFilter === option.value}
                 onPress={() => handleSelectReserve(option.value)}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.filterGroup}>
+          <ThemedText type="subtitle" style={styles.filterTitle}>
+            {t('weapons.filters.ownership.title')}
+          </ThemedText>
+          <View style={styles.filterRow}>
+            {ownershipOptions.map((option) => (
+              <FilterChip
+                key={option.value}
+                label={option.label}
+                selected={ownershipFilter === option.value}
+                onPress={() => handleSelectOwnership(option.value)}
               />
             ))}
           </View>
@@ -554,6 +650,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'baseline',
   },
+  cardBadgeColumn: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
   cardTitle: {
     flex: 1,
     marginRight: 12,
@@ -563,8 +663,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     opacity: 0.8,
   },
+  loanBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    overflow: 'hidden',
+  },
   metaText: {
     opacity: 0.8,
+  },
+  loanInfoBox: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+    gap: 4,
+  },
+  loanInfoText: {
+    fontSize: 13,
+    opacity: 0.85,
   },
   programsContainer: {
     gap: 6,

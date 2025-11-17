@@ -32,7 +32,11 @@ export const createWeaponsTable = `
     weaponCardRef TEXT,
     notes TEXT,
     operationMode TEXT,
-    caliber TEXT
+    caliber TEXT,
+    ownershipStatus TEXT NOT NULL DEFAULT 'own',
+    loanContactName TEXT,
+    loanStartDate TEXT,
+    loanEndDate TEXT
   );
 `;
 

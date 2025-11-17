@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   TextInput,
   View,
-  Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -27,6 +33,8 @@ const operationModes = ['helautomatisk', 'halvautomatisk', 'manuell', 'enkeltsku
 type OperationMode = (typeof operationModes)[number];
 
 type WeaponType = (typeof weaponTypes)[number];
+
+type OwnershipStatus = 'own' | 'loanIn' | 'loanOut';
 
 type ProgramSelection = {
   isReserve: boolean;
@@ -92,11 +100,55 @@ const areSelectionMapsEqual = (a: ProgramSelectionMap, b: ProgramSelectionMap): 
 
 const createWeaponId = () => `weapon-${Date.now()}-${Math.round(Math.random() * 1_000_000)}`;
 
+const ownershipStatusOptions: OwnershipStatus[] = ['own', 'loanIn', 'loanOut'];
+
+const toIsoDateString = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseIsoDate = (value: string | null | undefined): Date | null => {
+  if (!value) {
+    return null;
+  }
+
+  const [year, month, day] = value.split('-').map(Number);
+  if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
+    return null;
+  }
+
+  return new Date(year, month - 1, day);
+};
+
+const formatLoanDateLabel = (value: string | null, locale: string, placeholder: string) => {
+  if (!value) {
+    return placeholder;
+  }
+
+  const parsed = parseIsoDate(value);
+  if (!parsed) {
+    return placeholder;
+  }
+
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(parsed);
+  } catch (error) {
+    console.warn('Failed to format loan date, falling back to ISO', error);
+    return value;
+  }
+};
+
 export default function ManageWeaponScreen() {
   const { weaponId } = useLocalSearchParams<LocalParams>();
   const isEditMode = typeof weaponId === 'string' && weaponId.length > 0;
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
 
   const { weapon, loading: weaponLoading, error: weaponError } = useWeapon(weaponId);
@@ -124,6 +176,12 @@ export default function ManageWeaponScreen() {
   const [caliber, setCaliber] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedPrograms, setSelectedPrograms] = useState<ProgramSelectionMap>({});
+  const [ownershipStatus, setOwnershipStatus] = useState<OwnershipStatus>('own');
+  const [loanContactName, setLoanContactName] = useState('');
+  const [loanStartDate, setLoanStartDate] = useState<string | null>(null);
+  const [loanEndDate, setLoanEndDate] = useState<string | null>(null);
+  const [isShowingLoanStartPicker, setIsShowingLoanStartPicker] = useState(false);
+  const [isShowingLoanEndPicker, setIsShowingLoanEndPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
@@ -164,6 +222,10 @@ export default function ManageWeaponScreen() {
     setOperationMode((weapon.operationMode as OperationMode) ?? '');
     setCaliber(weapon.caliber ?? '');
     setNotes(weapon.notes ?? '');
+    setOwnershipStatus((weapon.ownershipStatus as OwnershipStatus) ?? 'own');
+    setLoanContactName(weapon.loanContactName ?? '');
+    setLoanStartDate(weapon.loanStartDate ?? null);
+    setLoanEndDate(weapon.loanEndDate ?? null);
     let approvedProgramId: string | null = null;
     const initialSelections = weapon.programs.reduce<ProgramSelectionMap>((acc, program) => {
       const isInitiallyApproved = program.status === 'approved';
@@ -218,6 +280,86 @@ export default function ManageWeaponScreen() {
       return next;
     });
   }, [groupedPrograms, selectedPrograms]);
+
+  const handleOwnershipChange = useCallback((status: OwnershipStatus) => {
+    setOwnershipStatus(status);
+
+    if (status === 'own') {
+      setLoanContactName('');
+      setLoanStartDate(null);
+      setLoanEndDate(null);
+      setIsShowingLoanStartPicker(false);
+      setIsShowingLoanEndPicker(false);
+    }
+  }, []);
+
+  const openLoanStartPicker = useCallback(() => {
+    setIsShowingLoanStartPicker((previous) => {
+      const next = !previous;
+      if (Platform.OS === 'ios' && next) {
+        setIsShowingLoanEndPicker(false);
+      }
+      return next;
+    });
+  }, []);
+
+  const openLoanEndPicker = useCallback(() => {
+    setIsShowingLoanEndPicker((previous) => {
+      const next = !previous;
+      if (Platform.OS === 'ios' && next) {
+        setIsShowingLoanStartPicker(false);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleLoanStartChange = useCallback(
+    (event: DateTimePickerEvent, date?: Date) => {
+      if (Platform.OS === 'android') {
+        setIsShowingLoanStartPicker(false);
+      }
+
+      if (event.type !== 'set' || !date) {
+        return;
+      }
+
+      const isoValue = toIsoDateString(date);
+      setLoanStartDate(isoValue);
+
+      if (loanEndDate && loanEndDate < isoValue) {
+        setLoanEndDate(isoValue);
+      }
+    },
+    [loanEndDate]
+  );
+
+  const handleLoanEndChange = useCallback(
+    (event: DateTimePickerEvent, date?: Date) => {
+      if (Platform.OS === 'android') {
+        setIsShowingLoanEndPicker(false);
+      }
+
+      if (event.type !== 'set' || !date) {
+        return;
+      }
+
+      const isoValue = toIsoDateString(date);
+      setLoanEndDate(isoValue);
+
+      if (loanStartDate && loanStartDate > isoValue) {
+        setLoanStartDate(isoValue);
+      }
+    },
+    [loanStartDate]
+  );
+
+  const handleClearLoanStart = useCallback(() => {
+    setLoanStartDate(null);
+  }, []);
+
+  const handleClearLoanEnd = useCallback(() => {
+    setLoanEndDate(null);
+  }, []);
 
   const toggleProgramSelection = useCallback((programId: string) => {
     setSelectedPrograms((prev) => {
@@ -294,6 +436,12 @@ export default function ManageWeaponScreen() {
     setCaliber('');
     setNotes('');
     setSelectedPrograms({});
+    setOwnershipStatus('own');
+    setLoanContactName('');
+    setLoanStartDate(null);
+    setLoanEndDate(null);
+    setIsShowingLoanStartPicker(false);
+    setIsShowingLoanEndPicker(false);
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -315,6 +463,12 @@ export default function ManageWeaponScreen() {
         : null;
       const price = Number.isNaN(parsedPrice) ? null : parsedPrice;
 
+      const normalizedOwnership = ownershipStatus;
+      const normalizedLoanContact =
+        normalizedOwnership === 'own' ? null : loanContactName.trim() || null;
+      const normalizedLoanStart = normalizedOwnership === 'own' ? null : loanStartDate;
+      const normalizedLoanEnd = normalizedOwnership === 'own' ? null : loanEndDate;
+
       const payload = {
         id: isEditMode && weaponId ? weaponId : createWeaponId(),
         displayName: displayName.trim(),
@@ -328,6 +482,10 @@ export default function ManageWeaponScreen() {
         operationMode: operationMode || null,
         caliber: caliber.trim() || null,
         notes: notes.trim() || null,
+        ownershipStatus: normalizedOwnership,
+        loanContactName: normalizedLoanContact,
+        loanStartDate: normalizedLoanStart,
+        loanEndDate: normalizedLoanEnd,
         programs: Object.entries(selectedPrograms).map(([programId, value]) => ({
           programId,
           isReserve: value.isApproved ? value.isReserve : false,
@@ -358,6 +516,10 @@ export default function ManageWeaponScreen() {
     manufacturer,
     model,
     notes,
+    ownershipStatus,
+    loanContactName,
+    loanEndDate,
+    loanStartDate,
     operationMode,
     refreshPrograms,
     resetForm,
@@ -473,6 +635,131 @@ export default function ManageWeaponScreen() {
               ))}
             </View>
           </FormField>
+
+          <FormField label={t('weaponForm.fields.ownershipStatus')}>
+            <View style={styles.chipRow}>
+              {ownershipStatusOptions.map((statusOption) => (
+                <Pressable
+                  key={statusOption}
+                  onPress={() => handleOwnershipChange(statusOption)}
+                  style={[
+                    styles.chip,
+                    chipThemeStyle,
+                    ownershipStatus === statusOption && styles.chipSelected,
+                  ]}
+                  accessibilityState={{ selected: ownershipStatus === statusOption }}
+                  disabled={saving}
+                >
+                  <ThemedText
+                    style={[
+                      styles.chipLabel,
+                      ownershipStatus === statusOption && styles.chipLabelSelected,
+                    ]}
+                  >
+                    {t(`weaponForm.ownership.options.${statusOption}` as const)}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
+            <ThemedText style={styles.fieldHint}>{t('weaponForm.ownership.help')}</ThemedText>
+          </FormField>
+
+          {ownershipStatus !== 'own' ? (
+            <View
+              style={[
+                styles.loanSection,
+                colorScheme === 'dark' ? styles.loanSectionDark : styles.loanSectionLight,
+              ]}
+            >
+              <FormField label={t('weaponForm.loan.contact')} containerStyle={styles.loanFormField}>
+                <TextInput
+                  value={loanContactName}
+                  onChangeText={setLoanContactName}
+                  style={[styles.input, inputThemeStyle]}
+                  placeholder={t('weaponForm.loan.contactPlaceholder')}
+                  placeholderTextColor={placeholderColor}
+                  autoCapitalize="words"
+                  editable={!saving}
+                />
+              </FormField>
+
+              <View style={styles.loanDatesRow}>
+                <FormField
+                  label={t('weaponForm.loan.start')}
+                  containerStyle={[styles.loanDateColumn, styles.loanFormField]}
+                >
+                  <View style={styles.dateButtonRow}>
+                    <Pressable
+                      onPress={openLoanStartPicker}
+                      style={[styles.chip, styles.dateButton, chipThemeStyle]}
+                      disabled={saving}
+                    >
+                      <ThemedText style={styles.dateButtonText}>
+                        {formatLoanDateLabel(
+                          loanStartDate,
+                          i18n.language,
+                          t('weaponForm.loan.datePlaceholder')
+                        )}
+                      </ThemedText>
+                    </Pressable>
+                    {loanStartDate ? (
+                      <Pressable onPress={handleClearLoanStart} disabled={saving}>
+                        <ThemedText style={styles.clearDateText}>
+                          {t('weaponForm.loan.clearDate')}
+                        </ThemedText>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                  {isShowingLoanStartPicker ? (
+                    <DateTimePicker
+                      value={parseIsoDate(loanStartDate) ?? new Date()}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={handleLoanStartChange}
+                      maximumDate={parseIsoDate(loanEndDate) ?? undefined}
+                    />
+                  ) : null}
+                </FormField>
+
+                <FormField
+                  label={t('weaponForm.loan.end')}
+                  containerStyle={[styles.loanDateColumn, styles.loanFormField]}
+                >
+                  <View style={styles.dateButtonRow}>
+                    <Pressable
+                      onPress={openLoanEndPicker}
+                      style={[styles.chip, styles.dateButton, chipThemeStyle]}
+                      disabled={saving}
+                    >
+                      <ThemedText style={styles.dateButtonText}>
+                        {formatLoanDateLabel(
+                          loanEndDate,
+                          i18n.language,
+                          t('weaponForm.loan.datePlaceholder')
+                        )}
+                      </ThemedText>
+                    </Pressable>
+                    {loanEndDate ? (
+                      <Pressable onPress={handleClearLoanEnd} disabled={saving}>
+                        <ThemedText style={styles.clearDateText}>
+                          {t('weaponForm.loan.clearDate')}
+                        </ThemedText>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                  {isShowingLoanEndPicker ? (
+                    <DateTimePicker
+                      value={parseIsoDate(loanEndDate) ?? new Date()}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={handleLoanEndChange}
+                      minimumDate={parseIsoDate(loanStartDate) ?? undefined}
+                    />
+                  ) : null}
+                </FormField>
+              </View>
+            </View>
+          ) : null}
 
           <FormField label={t('weaponForm.fields.manufacturer')}>
             <TextInput
@@ -752,11 +1039,12 @@ export default function ManageWeaponScreen() {
 type FormFieldProps = {
   label: string;
   children: React.ReactNode;
+  containerStyle?: StyleProp<ViewStyle>;
 };
 
-function FormField({ label, children }: FormFieldProps) {
+function FormField({ label, children, containerStyle }: FormFieldProps) {
   return (
-    <View style={styles.formField}>
+    <View style={[styles.formField, containerStyle]}>
       <ThemedText style={styles.formLabel}>{label}</ThemedText>
       {children}
     </View>
@@ -842,6 +1130,56 @@ const styles = StyleSheet.create({
   chipLabelSelected: {
     fontWeight: '600',
     opacity: 1,
+  },
+  fieldHint: {
+    fontSize: 13,
+    opacity: 0.65,
+  },
+  loanSection: {
+    gap: 16,
+    padding: 16,
+    borderRadius: 16,
+  },
+  loanSectionDark: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  loanSectionLight: {
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.12)',
+    backgroundColor: 'rgba(15, 23, 42, 0.05)',
+  },
+  loanFormField: {
+    flex: 1,
+  },
+  loanDatesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  loanDateColumn: {
+    flex: 1,
+    minWidth: 160,
+  },
+  dateButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dateButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+  },
+  dateButtonText: {
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  clearDateText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#ef4444',
   },
   sectionDivider: {
     height: 1,

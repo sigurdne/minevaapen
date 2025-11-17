@@ -11,7 +11,12 @@ export const useWeapons = (filters: WeaponFilters = {}) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const { organizationId = null, programId = null, reserveFilter = 'any' } = filters;
+  const {
+    organizationId = null,
+    programId = null,
+    reserveFilter = 'any',
+    ownershipFilter = 'all',
+  } = filters;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -22,6 +27,7 @@ export const useWeapons = (filters: WeaponFilters = {}) => {
         organizationId,
         programId,
         reserveFilter,
+        ownershipFilter,
       });
       setWeapons(result);
     } catch (err) {
@@ -29,7 +35,7 @@ export const useWeapons = (filters: WeaponFilters = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [organizationId, programId, reserveFilter]);
+  }, [organizationId, programId, reserveFilter, ownershipFilter]);
 
   useEffect(() => {
     void load();

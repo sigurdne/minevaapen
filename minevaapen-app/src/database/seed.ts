@@ -44,12 +44,22 @@ const runMigrations = async (): Promise<void> => {
     );
     const columnNames = tableInfo.map((col) => col.name);
 
-    if (!columnNames.includes('operationMode')) {
-      await db.execAsync('ALTER TABLE weapons ADD COLUMN operationMode TEXT');
-    }
+    const requiredColumns: Array<{ name: string; ddl: string }> = [
+      { name: 'operationMode', ddl: 'ALTER TABLE weapons ADD COLUMN operationMode TEXT' },
+      { name: 'caliber', ddl: 'ALTER TABLE weapons ADD COLUMN caliber TEXT' },
+      {
+        name: 'ownershipStatus',
+        ddl: "ALTER TABLE weapons ADD COLUMN ownershipStatus TEXT NOT NULL DEFAULT 'own'",
+      },
+      { name: 'loanContactName', ddl: 'ALTER TABLE weapons ADD COLUMN loanContactName TEXT' },
+      { name: 'loanStartDate', ddl: 'ALTER TABLE weapons ADD COLUMN loanStartDate TEXT' },
+      { name: 'loanEndDate', ddl: 'ALTER TABLE weapons ADD COLUMN loanEndDate TEXT' },
+    ];
 
-    if (!columnNames.includes('caliber')) {
-      await db.execAsync('ALTER TABLE weapons ADD COLUMN caliber TEXT');
+    for (const column of requiredColumns) {
+      if (!columnNames.includes(column.name)) {
+        await db.execAsync(column.ddl);
+      }
     }
   });
 };
@@ -145,8 +155,12 @@ const insertWeapon = async (
       weaponCardRef,
       notes,
       operationMode,
-      caliber
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      caliber,
+      ownershipStatus,
+      loanContactName,
+      loanStartDate,
+      loanEndDate
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       weapon.id,
       weapon.displayName,
@@ -160,6 +174,10 @@ const insertWeapon = async (
       weapon.notes ?? null,
       null, // operationMode
       null, // caliber
+      'own',
+      null,
+      null,
+      null,
     ]
   );
 };

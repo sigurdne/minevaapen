@@ -131,6 +131,7 @@ export const exportWeaponsToCsv = async (): Promise<string> => {
   if (weapons.length === 0) {
     throw new Error('No weapons available to export');
   }
+
   const headers = [
     'id',
     'displayName',
@@ -146,6 +147,10 @@ export const exportWeaponsToCsv = async (): Promise<string> => {
     'notes',
     'programs',
     'reserve',
+    'ownershipStatus',
+    'loanContactName',
+    'loanStartDate',
+    'loanEndDate',
   ];
 
   const rows = weapons.map((weapon) => {
@@ -168,6 +173,10 @@ export const exportWeaponsToCsv = async (): Promise<string> => {
       weapon.notes,
       programString,
       reserveMark,
+      weapon.ownershipStatus,
+      weapon.loanContactName,
+      weapon.loanStartDate,
+      weapon.loanEndDate,
     ]
       .map(toCsvValue)
       .join(',');

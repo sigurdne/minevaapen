@@ -15,6 +15,10 @@ export type WeaponRecord = {
   notes: string | null;
   operationMode: string | null;
   caliber: string | null;
+  ownershipStatus: 'own' | 'loanIn' | 'loanOut';
+  loanContactName: string | null;
+  loanStartDate: string | null;
+  loanEndDate: string | null;
 };
 
 export type WeaponProgramLink = {
@@ -33,6 +37,7 @@ export type WeaponFilters = {
   organizationId?: string | null;
   programId?: string | null;
   reserveFilter?: 'any' | 'reserveOnly' | 'nonReserve';
+  ownershipFilter?: 'all' | 'own' | 'loanIn' | 'loanOut';
 };
 
 export type ProgramUsage = {
@@ -94,6 +99,10 @@ export const fetchWeaponById = async (weaponId: string): Promise<WeaponWithProgr
       w.notes,
       w.operationMode,
       w.caliber,
+      w.ownershipStatus,
+      w.loanContactName,
+      w.loanStartDate,
+      w.loanEndDate,
       IFNULL(json_group_array(
         CASE
           WHEN p.id IS NOT NULL THEN json_object(
@@ -168,6 +177,11 @@ const buildWeaponQuery = (filters: WeaponFilters) => {
     );
   }
 
+  if (filters.ownershipFilter && filters.ownershipFilter !== 'all') {
+    conditions.push('w.ownershipStatus = ?');
+    params.push(filters.ownershipFilter);
+  }
+
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const sql = `
@@ -184,6 +198,10 @@ const buildWeaponQuery = (filters: WeaponFilters) => {
       w.notes,
       w.operationMode,
       w.caliber,
+      w.ownershipStatus,
+      w.loanContactName,
+      w.loanStartDate,
+      w.loanEndDate,
       IFNULL(json_group_array(
         CASE
           WHEN p.id IS NOT NULL THEN json_object(
@@ -254,6 +272,10 @@ export type UpsertWeaponInput = {
   notes?: string | null;
   operationMode?: string | null;
   caliber?: string | null;
+  ownershipStatus: 'own' | 'loanIn' | 'loanOut';
+  loanContactName?: string | null;
+  loanStartDate?: string | null;
+  loanEndDate?: string | null;
   programs: Array<{
     programId: string;
     status?: 'approved' | 'pending' | 'proposed';
@@ -276,8 +298,12 @@ export const upsertWeapon = async (input: UpsertWeaponInput): Promise<void> => {
         weaponCardRef,
         notes,
         operationMode,
-        caliber
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        caliber,
+        ownershipStatus,
+        loanContactName,
+        loanStartDate,
+        loanEndDate
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         displayName = excluded.displayName,
         type = excluded.type,
@@ -289,7 +315,11 @@ export const upsertWeapon = async (input: UpsertWeaponInput): Promise<void> => {
         weaponCardRef = excluded.weaponCardRef,
         notes = excluded.notes,
         operationMode = excluded.operationMode,
-        caliber = excluded.caliber
+        caliber = excluded.caliber,
+        ownershipStatus = excluded.ownershipStatus,
+        loanContactName = excluded.loanContactName,
+        loanStartDate = excluded.loanStartDate,
+        loanEndDate = excluded.loanEndDate
       `,
       [
         input.id,
@@ -304,6 +334,10 @@ export const upsertWeapon = async (input: UpsertWeaponInput): Promise<void> => {
         input.notes ?? null,
         input.operationMode ?? null,
         input.caliber ?? null,
+        input.ownershipStatus,
+        input.loanContactName ?? null,
+        input.loanStartDate ?? null,
+        input.loanEndDate ?? null,
       ]
     );
 
