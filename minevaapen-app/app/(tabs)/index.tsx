@@ -35,7 +35,8 @@ const formatLoanDate = (value: string | null, locale: string) => {
   const date = new Date(year, month - 1, day);
 
   try {
-    return new Intl.DateTimeFormat(locale, {
+    const normalizedLocale = locale ? locale.replace(/_/g, '-') : 'nb-NO';
+    return new Intl.DateTimeFormat(normalizedLocale, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

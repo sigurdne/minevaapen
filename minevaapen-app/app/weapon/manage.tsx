@@ -133,7 +133,8 @@ const formatLoanDateLabel = (value: string | null, locale: string, placeholder: 
   }
 
   try {
-    return new Intl.DateTimeFormat(locale, {
+    const normalizedLocale = locale ? locale.replace(/_/g, '-') : 'nb-NO';
+    return new Intl.DateTimeFormat(normalizedLocale, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
