@@ -30,7 +30,9 @@ export const createWeaponsTable = `
     acquisitionDate TEXT,
     acquisitionPrice REAL,
     weaponCardRef TEXT,
-    notes TEXT
+    notes TEXT,
+    operationMode TEXT,
+    caliber TEXT
   );
 `;
 

@@ -22,6 +22,10 @@ import { useWeapon } from '@/src/hooks/use-weapon';
 
 const weaponTypes = ['pistol', 'revolver', 'rifle', 'shotgun'] as const;
 
+const operationModes = ['helautomatisk', 'halvautomatisk', 'manuell', 'enkeltskudd'] as const;
+
+type OperationMode = (typeof operationModes)[number];
+
 type WeaponType = (typeof weaponTypes)[number];
 
 type ProgramSelection = {
@@ -65,6 +69,8 @@ export default function ManageWeaponScreen() {
   const [acquisitionDate, setAcquisitionDate] = useState('');
   const [acquisitionPrice, setAcquisitionPrice] = useState('');
   const [weaponCardRef, setWeaponCardRef] = useState('');
+  const [operationMode, setOperationMode] = useState<OperationMode | ''>('');
+  const [caliber, setCaliber] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedPrograms, setSelectedPrograms] = useState<ProgramSelectionMap>({});
   const [saving, setSaving] = useState(false);
@@ -104,6 +110,8 @@ export default function ManageWeaponScreen() {
         : ''
     );
     setWeaponCardRef(weapon.weaponCardRef ?? '');
+    setOperationMode((weapon.operationMode as OperationMode) ?? '');
+    setCaliber(weapon.caliber ?? '');
     setNotes(weapon.notes ?? '');
     let approvedProgramId: string | null = null;
     const initialSelections = weapon.programs.reduce<ProgramSelectionMap>((acc, program) => {
@@ -232,6 +240,8 @@ export default function ManageWeaponScreen() {
     setAcquisitionDate('');
     setAcquisitionPrice('');
     setWeaponCardRef('');
+    setOperationMode('');
+    setCaliber('');
     setNotes('');
     setSelectedPrograms({});
   }, []);
@@ -265,6 +275,8 @@ export default function ManageWeaponScreen() {
         acquisitionDate: acquisitionDate.trim() || null,
         acquisitionPrice: price,
         weaponCardRef: weaponCardRef.trim() || null,
+        operationMode: operationMode || null,
+        caliber: caliber.trim() || null,
         notes: notes.trim() || null,
         programs: Object.entries(selectedPrograms).map(([programId, value]) => ({
           programId,
@@ -290,11 +302,13 @@ export default function ManageWeaponScreen() {
   }, [
     acquisitionDate,
     acquisitionPrice,
+    caliber,
     displayName,
     isEditMode,
     manufacturer,
     model,
     notes,
+    operationMode,
     refreshPrograms,
     resetForm,
     router,
@@ -473,6 +487,35 @@ export default function ManageWeaponScreen() {
               onChangeText={setWeaponCardRef}
               style={[styles.input, inputThemeStyle]}
               placeholder={t('weaponForm.fields.weaponCardRef')}
+              placeholderTextColor={placeholderColor}
+              editable={!saving}
+            />
+          </FormField>
+
+          <FormField label={t('weaponForm.fields.operationMode')}>
+            <View style={styles.chipRow}>
+              {operationModes.map((modeOption) => (
+                <Pressable
+                  key={modeOption}
+                  onPress={() => setOperationMode(modeOption)}
+                  style={[styles.chip, chipThemeStyle, operationMode === modeOption && styles.chipSelected]}
+                >
+                  <ThemedText
+                    style={[styles.chipLabel, operationMode === modeOption && styles.chipLabelSelected]}
+                  >
+                    {t(`weaponForm.operationModes.${modeOption}` as const)}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
+          </FormField>
+
+          <FormField label={t('weaponForm.fields.caliber')}>
+            <TextInput
+              value={caliber}
+              onChangeText={setCaliber}
+              style={[styles.input, inputThemeStyle]}
+              placeholder="9 mm"
               placeholderTextColor={placeholderColor}
               editable={!saving}
             />

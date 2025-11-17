@@ -13,6 +13,8 @@ export type WeaponRecord = {
   acquisitionPrice: number | null;
   weaponCardRef: string | null;
   notes: string | null;
+  operationMode: string | null;
+  caliber: string | null;
 };
 
 export type WeaponProgramLink = {
@@ -90,6 +92,8 @@ export const fetchWeaponById = async (weaponId: string): Promise<WeaponWithProgr
       w.acquisitionPrice,
       w.weaponCardRef,
       w.notes,
+      w.operationMode,
+      w.caliber,
       IFNULL(json_group_array(
         CASE
           WHEN p.id IS NOT NULL THEN json_object(
@@ -178,6 +182,8 @@ const buildWeaponQuery = (filters: WeaponFilters) => {
       w.acquisitionPrice,
       w.weaponCardRef,
       w.notes,
+      w.operationMode,
+      w.caliber,
       IFNULL(json_group_array(
         CASE
           WHEN p.id IS NOT NULL THEN json_object(
@@ -246,6 +252,8 @@ export type UpsertWeaponInput = {
   acquisitionPrice?: number | null;
   weaponCardRef?: string | null;
   notes?: string | null;
+  operationMode?: string | null;
+  caliber?: string | null;
   programs: Array<{
     programId: string;
     status?: 'approved' | 'pending' | 'proposed';
@@ -266,8 +274,10 @@ export const upsertWeapon = async (input: UpsertWeaponInput): Promise<void> => {
         acquisitionDate,
         acquisitionPrice,
         weaponCardRef,
-        notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        notes,
+        operationMode,
+        caliber
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         displayName = excluded.displayName,
         type = excluded.type,
@@ -277,7 +287,9 @@ export const upsertWeapon = async (input: UpsertWeaponInput): Promise<void> => {
         acquisitionDate = excluded.acquisitionDate,
         acquisitionPrice = excluded.acquisitionPrice,
         weaponCardRef = excluded.weaponCardRef,
-        notes = excluded.notes
+        notes = excluded.notes,
+        operationMode = excluded.operationMode,
+        caliber = excluded.caliber
       `,
       [
         input.id,
@@ -290,6 +302,8 @@ export const upsertWeapon = async (input: UpsertWeaponInput): Promise<void> => {
         input.acquisitionPrice ?? null,
         input.weaponCardRef ?? null,
         input.notes ?? null,
+        input.operationMode ?? null,
+        input.caliber ?? null,
       ]
     );
 
