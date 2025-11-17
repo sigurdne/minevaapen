@@ -190,6 +190,7 @@ export default function HomeScreen() {
       const typeLabel = t(`weapons.types.${item.type}` as const, {
         defaultValue: item.type,
       });
+      const approvedProgramId = item.programs.find((program) => program.status === 'approved')?.programId;
 
       const manufacturerModel =
         item.manufacturer && item.model
@@ -231,13 +232,27 @@ export default function HomeScreen() {
               <ThemedText style={styles.metaText}>{t('weapons.card.noPrograms')}</ThemedText>
             ) : (
               item.programs.map((program) => (
-                <View key={`${item.id}-${program.programId}`} style={styles.programRow}>
-                  <ThemedText style={styles.programName}>{program.programName}</ThemedText>
-                  {program.isReserve ? (
-                    <ThemedText style={styles.reserveBadge}>
-                      {t('weapons.card.reserveBadge')}
-                    </ThemedText>
-                  ) : null}
+                <View
+                  key={`${item.id}-${program.programId}`}
+                  style={[styles.programRow, program.programId === approvedProgramId && styles.programRowApproved]}
+                >
+                  <ThemedText
+                    style={[styles.programName, program.programId === approvedProgramId && styles.programNameApproved]}
+                  >
+                    {program.programName}
+                  </ThemedText>
+                  <View style={styles.programBadges}>
+                    {program.programId === approvedProgramId ? (
+                      <ThemedText style={styles.approvedBadge}>
+                        {t('weapons.card.approvedBadge')}
+                      </ThemedText>
+                    ) : null}
+                    {program.isReserve ? (
+                      <ThemedText style={styles.reserveBadge}>
+                        {t('weapons.card.reserveBadge')}
+                      </ThemedText>
+                    ) : null}
+                  </View>
                 </View>
               ))
             )}
@@ -562,10 +577,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  programRowApproved: {
+    borderWidth: 1,
+    borderColor: 'rgba(37, 99, 235, 0.4)',
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
   },
   programName: {
     flex: 1,
     marginRight: 8,
+  },
+  programNameApproved: {
+    fontWeight: '700',
+  },
+  programBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  approvedBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(37, 99, 235, 0.25)',
+    overflow: 'hidden',
   },
   reserveBadge: {
     fontSize: 12,
