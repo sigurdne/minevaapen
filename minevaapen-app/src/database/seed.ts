@@ -29,10 +29,29 @@ const seedDatabase = async (): Promise<void> => {
     await db.execAsync(createWeaponProgramsTable);
   });
 
+  await runMigrations();
   await seedOrganizationsIfEmpty();
   await seedProgramsIfEmpty();
   await seedWeaponsIfEmpty();
   await seedWeaponProgramsIfEmpty();
+};
+
+const runMigrations = async (): Promise<void> => {
+  await runWithinTransaction(async (db) => {
+    // Check if operationMode and caliber columns exist, add them if not
+    const tableInfo = await db.getAllAsync<{ name: string }>(
+      'PRAGMA table_info(weapons)'
+    );
+    const columnNames = tableInfo.map((col) => col.name);
+
+    if (!columnNames.includes('operationMode')) {
+      await db.execAsync('ALTER TABLE weapons ADD COLUMN operationMode TEXT');
+    }
+
+    if (!columnNames.includes('caliber')) {
+      await db.execAsync('ALTER TABLE weapons ADD COLUMN caliber TEXT');
+    }
+  });
 };
 
 const seedOrganizationsIfEmpty = async (): Promise<void> => {
@@ -124,8 +143,10 @@ const insertWeapon = async (
       acquisitionDate,
       acquisitionPrice,
       weaponCardRef,
-      notes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      notes,
+      operationMode,
+      caliber
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       weapon.id,
       weapon.displayName,
@@ -137,6 +158,8 @@ const insertWeapon = async (
       weapon.acquisitionPrice ?? null,
       weapon.weaponCardRef ?? null,
       weapon.notes ?? null,
+      null, // operationMode
+      null, // caliber
     ]
   );
 };
