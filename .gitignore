@@ -42,3 +42,4 @@ ios/
 # Others
 .expo-dev-server/
 coverage/
+minevaapen-app/build-*.apk
