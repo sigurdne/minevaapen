@@ -17,6 +17,10 @@ Norges Jeger Og Fiskerforbund:
 <label for="program"><span class="pds-textfield__label">Godkjent skyteprogram</span><select class="pds-select__selector" name="program" id="program"><option value="" disabled="" hidden="">Velg et program</option><option value="31">Jaktfelt</option><option value="32">Elgbaneskyting</option><option value="33">Nordisk jaktskyting</option><option value="34">Jegertrap</option><option value="35">Leirduesti</option><option value="36">Figurjakt</option><option value="37">Jaktsti</option></select></label>
 
 
+Funksjonsmåte:
+<label for="triggerMechanism"><span class="pds-textfield__label">Funksjonsmåte</span><select class="pds-select__selector" name="triggerMechanism" id="triggerMechanism"><option value="" disabled="" hidden="">Velg funksjonsmåte</option><option value="Helautomatisk">Helautomatisk</option><option value="Halvautomatisk">Halvautomatisk</option><option value="Manuell">Manuell</option><option value="Enkeltskudd">Enkeltskudd</option></select></label>
+
+
 regler for reservevåpen:
 ” Politiet kan likevel gje løyve til erverv og innehav av inntil to komplette skytevåpen til eit godkjent
 skyteprogram (reservevåpen) til personer som det siste året:
