@@ -309,7 +309,14 @@ export const upsertWeapon = async (input: UpsertWeaponInput): Promise<void> => {
 
     await db.runAsync('DELETE FROM weapon_programs WHERE weaponId = ?', [input.id]);
 
+    const approvedProgramId =
+      input.programs.find((program) => (program.status ?? 'approved') === 'approved')?.programId ??
+      null;
+
     for (const program of input.programs) {
+      const status = program.status ?? 'approved';
+      const isReserve = program.isReserve && program.programId === approvedProgramId;
+
       await db.runAsync(
         `INSERT INTO weapon_programs (
           weaponId,
@@ -324,8 +331,8 @@ export const upsertWeapon = async (input: UpsertWeaponInput): Promise<void> => {
         [
           input.id,
           program.programId,
-          program.status ?? 'approved',
-          program.isReserve ? 1 : 0,
+          status,
+          isReserve ? 1 : 0,
         ]
       );
     }

@@ -39,6 +39,57 @@ type LocalParams = {
   weaponId?: string;
 };
 
+const normalizeSelectionMap = (
+  input: ProgramSelectionMap,
+  preferredApprovedId?: string | null
+): ProgramSelectionMap => {
+  let approvedProgramId = preferredApprovedId ?? null;
+
+  if (approvedProgramId && !(input[approvedProgramId]?.isApproved)) {
+    approvedProgramId = null;
+  }
+
+  if (!approvedProgramId) {
+    for (const [id, selection] of Object.entries(input)) {
+      if (selection.isApproved) {
+        approvedProgramId = id;
+        break;
+      }
+    }
+  }
+
+  const normalizedEntries = Object.entries(input).map(([id, selection]) => {
+    const isApproved = Boolean(
+      approvedProgramId && approvedProgramId === id && selection.isApproved
+    );
+    const isReserve = isApproved ? selection.isReserve : false;
+
+    const normalizedSelection: ProgramSelection = { isApproved, isReserve };
+    return [id, normalizedSelection];
+  });
+
+  return Object.fromEntries(normalizedEntries) as ProgramSelectionMap;
+};
+
+const areSelectionMapsEqual = (a: ProgramSelectionMap, b: ProgramSelectionMap): boolean => {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+
+  if (aKeys.length !== bKeys.length) {
+    return false;
+  }
+
+  for (const key of aKeys) {
+    const left = a[key];
+    const right = b[key];
+    if (!right || left.isApproved !== right.isApproved || left.isReserve !== right.isReserve) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 const createWeaponId = () => `weapon-${Date.now()}-${Math.round(Math.random() * 1_000_000)}`;
 
 export default function ManageWeaponScreen() {
@@ -127,7 +178,8 @@ export default function ManageWeaponScreen() {
       return acc;
     }, {});
 
-    setSelectedPrograms(initialSelections);
+    const normalizedSelections = normalizeSelectionMap(initialSelections, approvedProgramId);
+    setSelectedPrograms(normalizedSelections);
   }, [isEditMode, weapon]);
 
   const groupedPrograms = useMemo(() => {
@@ -175,7 +227,8 @@ export default function ManageWeaponScreen() {
       } else {
         next[programId] = { isReserve: false, isApproved: false };
       }
-      return next;
+      const normalized = normalizeSelectionMap(next);
+      return areSelectionMapsEqual(prev, normalized) ? prev : normalized;
     });
   }, []);
 
@@ -193,10 +246,17 @@ export default function ManageWeaponScreen() {
         return prev;
       }
 
-      return {
+      const updated: ProgramSelectionMap = {
         ...prev,
-        [programId]: { ...existing, isReserve },
+        [programId]: {
+          ...existing,
+          isReserve,
+          isApproved: isReserve ? true : existing.isApproved,
+        },
       };
+
+      const normalized = normalizeSelectionMap(updated, isReserve ? programId : undefined);
+      return areSelectionMapsEqual(prev, normalized) ? prev : normalized;
     });
   }, []);
 
@@ -207,27 +267,17 @@ export default function ManageWeaponScreen() {
         return prev;
       }
 
-      const next: ProgramSelectionMap = {};
-      let changed = false;
+      const updated: ProgramSelectionMap = {
+        ...prev,
+        [programId]: {
+          ...existing,
+          isApproved,
+          isReserve: isApproved ? existing.isReserve : false,
+        },
+      };
 
-      for (const [id, value] of Object.entries(prev)) {
-        if (id === programId) {
-          const nextValue = { ...value, isApproved };
-          next[id] = nextValue;
-          if (nextValue.isApproved !== value.isApproved) {
-            changed = true;
-          }
-        } else if (isApproved && value.isApproved) {
-          next[id] = { ...value, isApproved: false };
-          if (value.isApproved) {
-            changed = true;
-          }
-        } else {
-          next[id] = value;
-        }
-      }
-
-      return changed ? next : prev;
+      const normalized = normalizeSelectionMap(updated, isApproved ? programId : undefined);
+      return areSelectionMapsEqual(prev, normalized) ? prev : normalized;
     });
   }, []);
 
@@ -280,7 +330,7 @@ export default function ManageWeaponScreen() {
         notes: notes.trim() || null,
         programs: Object.entries(selectedPrograms).map(([programId, value]) => ({
           programId,
-          isReserve: value.isReserve,
+          isReserve: value.isApproved ? value.isReserve : false,
           status: value.isApproved ? ('approved' as const) : ('pending' as const),
         })),
       };
