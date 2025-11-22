@@ -56,6 +56,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [organizationsExpanded, setOrganizationsExpanded] = useState(false);
   const [programsExpanded, setProgramsExpanded] = useState(false);
+  const [expandedWeaponIds, setExpandedWeaponIds] = useState<Set<string>>(new Set());
 
   const {
     organizations,
@@ -226,8 +227,21 @@ export default function HomeScreen() {
     }
   }, [refreshPrograms, refreshWeapons]);
 
+  const toggleWeaponExpansion = useCallback((weaponId: string) => {
+    setExpandedWeaponIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(weaponId)) {
+        next.delete(weaponId);
+      } else {
+        next.add(weaponId);
+      }
+      return next;
+    });
+  }, []);
+
   const renderWeapon = useCallback(
     ({ item }: { item: WeaponWithPrograms }) => {
+      const isExpanded = expandedWeaponIds.has(item.id);
       const locale = i18n.language || 'nb-NO';
       const typeLabel = t(`weapons.types.${item.type}` as const, {
         defaultValue: item.type,
@@ -260,101 +274,112 @@ export default function HomeScreen() {
           lightColor="#ffffff"
           darkColor="rgba(255,255,255,0.05)"
         >
-          <View style={styles.cardHeader}>
+          <Pressable
+            onPress={() => toggleWeaponExpansion(item.id)}
+            style={styles.cardHeader}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: isExpanded }}
+          >
             <ThemedText type="subtitle" style={styles.cardTitle}>
               {item.displayName}
             </ThemedText>
-            <View style={styles.cardBadgeColumn}>
-              <ThemedText style={styles.typeBadge}>{typeLabel}</ThemedText>
-              {loanBadge ? <ThemedText style={styles.loanBadge}>{loanBadge}</ThemedText> : null}
-            </View>
-          </View>
-
-          {manufacturerModel ? (
-            <ThemedText style={styles.metaText}>{manufacturerModel}</ThemedText>
-          ) : null}
-
-          {item.serialNumber ? (
-            <ThemedText style={styles.metaText}>
-              {t('weapons.card.serialNumber', { serial: item.serialNumber })}
-            </ThemedText>
-          ) : null}
-
-          {showLoanInfo ? (
-            <View style={styles.loanInfoBox}>
-              {item.loanContactName ? (
-                <ThemedText style={styles.loanInfoText}>
-                  {t('weapons.card.loanContact', { name: item.loanContactName })}
-                </ThemedText>
-              ) : null}
-              {formattedLoanStart || formattedLoanEnd ? (
-                <ThemedText style={styles.loanInfoText}>
-                  {t('weapons.card.loanPeriod', {
-                    start: formattedLoanStart ?? t('weapons.card.loanDateUnknown'),
-                    end: formattedLoanEnd ?? t('weapons.card.loanDateUnknown'),
-                  })}
-                </ThemedText>
-              ) : null}
-            </View>
-          ) : null}
-
-          <View style={styles.programsContainer}>
-            <ThemedText style={styles.programsTitle}>
-              {t('weapons.card.programsTitle')}
-            </ThemedText>
-
-            {item.programs.length === 0 ? (
-              <ThemedText style={styles.metaText}>{t('weapons.card.noPrograms')}</ThemedText>
-            ) : (
-              item.programs.map((program) => (
-                <View
-                  key={`${item.id}-${program.programId}`}
-                  style={[
-                    styles.programRow,
-                    program.programId === approvedProgramId && styles.programRowApproved,
-                  ]}
-                >
-                  <ThemedText
-                    style={[
-                      styles.programName,
-                      program.programId === approvedProgramId && styles.programNameApproved,
-                    ]}
-                  >
-                    {program.programName}
-                  </ThemedText>
-                  <View style={styles.programBadges}>
-                    {program.programId === approvedProgramId ? (
-                      <ThemedText style={styles.approvedBadge}>
-                        {t('weapons.card.approvedBadge')}
-                      </ThemedText>
-                    ) : null}
-                    {program.isReserve ? (
-                      <ThemedText style={styles.reserveBadge}>
-                        {t('weapons.card.reserveBadge')}
-                      </ThemedText>
-                    ) : null}
-                  </View>
-                </View>
-              ))
+            {isExpanded && (
+              <View style={styles.cardBadgeColumn}>
+                <ThemedText style={styles.typeBadge}>{typeLabel}</ThemedText>
+                {loanBadge ? <ThemedText style={styles.loanBadge}>{loanBadge}</ThemedText> : null}
+              </View>
             )}
-          </View>
+          </Pressable>
 
-          <View style={styles.cardActions}>
-            <Link
-              href={{ pathname: '/weapon/manage', params: { weaponId: item.id } }}
-              asChild
-            >
-              <Pressable style={styles.editButton}>
-                <ThemedText style={styles.editButtonText}>
-                  {t('weapons.card.edit')}
+          {isExpanded && (
+            <>
+              {manufacturerModel ? (
+                <ThemedText style={styles.metaText}>{manufacturerModel}</ThemedText>
+              ) : null}
+
+              {item.serialNumber ? (
+                <ThemedText style={styles.metaText}>
+                  {t('weapons.card.serialNumber', { serial: item.serialNumber })}
                 </ThemedText>
-              </Pressable>
-            </Link>
-          </View>
+              ) : null}
+
+              {showLoanInfo ? (
+                <View style={styles.loanInfoBox}>
+                  {item.loanContactName ? (
+                    <ThemedText style={styles.loanInfoText}>
+                      {t('weapons.card.loanContact', { name: item.loanContactName })}
+                    </ThemedText>
+                  ) : null}
+                  {formattedLoanStart || formattedLoanEnd ? (
+                    <ThemedText style={styles.loanInfoText}>
+                      {t('weapons.card.loanPeriod', {
+                        start: formattedLoanStart ?? t('weapons.card.loanDateUnknown'),
+                        end: formattedLoanEnd ?? t('weapons.card.loanDateUnknown'),
+                      })}
+                    </ThemedText>
+                  ) : null}
+                </View>
+              ) : null}
+
+              <View style={styles.programsContainer}>
+                <ThemedText style={styles.programsTitle}>
+                  {t('weapons.card.programsTitle')}
+                </ThemedText>
+
+                {item.programs.length === 0 ? (
+                  <ThemedText style={styles.metaText}>{t('weapons.card.noPrograms')}</ThemedText>
+                ) : (
+                  item.programs.map((program) => (
+                    <View
+                      key={`${item.id}-${program.programId}`}
+                      style={[
+                        styles.programRow,
+                        program.programId === approvedProgramId && styles.programRowApproved,
+                      ]}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.programName,
+                          program.programId === approvedProgramId && styles.programNameApproved,
+                        ]}
+                      >
+                        {program.programName}
+                      </ThemedText>
+                      <View style={styles.programBadges}>
+                        {program.programId === approvedProgramId ? (
+                          <ThemedText style={styles.approvedBadge}>
+                            {t('weapons.card.approvedBadge')}
+                          </ThemedText>
+                        ) : null}
+                        {program.isReserve ? (
+                          <ThemedText style={styles.reserveBadge}>
+                            {t('weapons.card.reserveBadge')}
+                          </ThemedText>
+                        ) : null}
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+
+              <View style={styles.cardActions}>
+                <Link
+                  href={{ pathname: '/weapon/manage', params: { weaponId: item.id } }}
+                  asChild
+                >
+                  <Pressable style={styles.editButton}>
+                    <ThemedText style={styles.editButtonText}>
+                      {t('weapons.card.edit')}
+                    </ThemedText>
+                  </Pressable>
+                </Link>
+              </View>
+            </>
+          )}
         </ThemedView>
       );
     },
-    [cardThemeStyle, i18n.language, t]
+    [cardThemeStyle, expandedWeaponIds, i18n.language, t, toggleWeaponExpansion]
   );
 
   return (
