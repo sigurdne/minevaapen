@@ -16,6 +16,7 @@ export const useWeapons = (filters: WeaponFilters = {}) => {
     programId = null,
     reserveFilter = 'any',
     ownershipFilter = 'all',
+    allowedOrganizationIds = null,
   } = filters;
 
   const load = useCallback(async () => {
@@ -28,6 +29,7 @@ export const useWeapons = (filters: WeaponFilters = {}) => {
         programId,
         reserveFilter,
         ownershipFilter,
+        allowedOrganizationIds,
       });
       setWeapons(result);
     } catch (err) {
@@ -35,7 +37,7 @@ export const useWeapons = (filters: WeaponFilters = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [organizationId, programId, reserveFilter, ownershipFilter]);
+  }, [organizationId, programId, reserveFilter, ownershipFilter, allowedOrganizationIds]);
 
   useEffect(() => {
     void load();

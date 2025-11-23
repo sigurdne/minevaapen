@@ -38,6 +38,7 @@ export type WeaponFilters = {
   programId?: string | null;
   reserveFilter?: 'any' | 'reserveOnly' | 'nonReserve';
   ownershipFilter?: 'all' | 'own' | 'loanIn' | 'loanOut';
+  allowedOrganizationIds?: string[] | null;
 };
 
 export type ProgramUsage = {
@@ -75,6 +76,14 @@ type ProgramUsageRow = {
 export const fetchWeapons = async (
   filters: WeaponFilters = {}
 ): Promise<WeaponWithPrograms[]> => {
+  if (
+    !filters.organizationId &&
+    Array.isArray(filters.allowedOrganizationIds) &&
+    filters.allowedOrganizationIds.length === 0
+  ) {
+    return [];
+  }
+
   const { sql, params } = buildWeaponQuery(filters);
   const result = await runSql<WeaponQueryRow>(sql, params);
 
@@ -161,6 +170,19 @@ const buildWeaponQuery = (filters: WeaponFilters) => {
     params.push(filters.programId);
   }
 
+  if (Array.isArray(filters.allowedOrganizationIds) && filters.allowedOrganizationIds.length > 0) {
+    const placeholders = filters.allowedOrganizationIds.map(() => '?').join(', ');
+    conditions.push(
+      `EXISTS (
+        SELECT 1
+        FROM weapon_programs wpo
+        INNER JOIN programs po ON po.id = wpo.programId
+        WHERE wpo.weaponId = w.id AND po.organizationId IN (${placeholders})
+      )`
+    );
+    params.push(...filters.allowedOrganizationIds);
+  }
+
   if (filters.reserveFilter === 'reserveOnly') {
     conditions.push(
       `EXISTS (
@@ -225,14 +247,26 @@ const buildWeaponQuery = (filters: WeaponFilters) => {
 };
 
 export const fetchProgramUsage = async (
-  organizationId?: string | null
+  organizationId?: string | null,
+  allowedOrganizationIds?: string[] | null
 ): Promise<ProgramUsage[]> => {
   const params: SQLiteBindParams = [];
-  const whereClause = organizationId ? 'WHERE p.organizationId = ?' : '';
+  const conditions: string[] = [];
 
   if (organizationId) {
+    conditions.push('p.organizationId = ?');
     params.push(organizationId);
+  } else if (Array.isArray(allowedOrganizationIds)) {
+    if (allowedOrganizationIds.length === 0) {
+      return [];
+    }
+
+    const placeholders = allowedOrganizationIds.map(() => '?').join(', ');
+    conditions.push(`p.organizationId IN (${placeholders})`);
+    params.push(...allowedOrganizationIds);
   }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const sql = `
     SELECT

@@ -158,12 +158,21 @@ export default function ManageWeaponScreen() {
     loading: organizationsLoading,
     error: organizationsError,
   } = useOrganizations();
+  const memberOrganizations = useMemo(
+    () => organizations.filter((org) => org.isMember),
+    [organizations]
+  );
+  const memberOrganizationIds = useMemo(
+    () => memberOrganizations.map((org) => org.id),
+    [memberOrganizations]
+  );
+  const membershipUnavailable = !organizationsLoading && memberOrganizationIds.length === 0;
   const {
     programs,
     loading: programsLoading,
     error: programsError,
     refresh: refreshPrograms,
-  } = usePrograms();
+  } = usePrograms({ allowedOrganizationIds: memberOrganizationIds });
 
   const [displayName, setDisplayName] = useState('');
   const [weaponType, setWeaponType] = useState<WeaponType>('pistol');
@@ -246,7 +255,7 @@ export default function ManageWeaponScreen() {
   }, [isEditMode, weapon]);
 
   const groupedPrograms = useMemo(() => {
-    const organizationById = new Map(organizations.map((org) => [org.id, org]));
+    const organizationById = new Map(memberOrganizations.map((org) => [org.id, org]));
     const grouped = new Map<string, { id: string; name: string; programs: typeof programs }>();
 
     for (const program of programs) {
@@ -269,7 +278,7 @@ export default function ManageWeaponScreen() {
       ...group,
       programs: [...group.programs].sort((a, b) => a.name.localeCompare(b.name, 'nb')),
     }));
-  }, [organizations, programs]);
+  }, [memberOrganizations, programs]);
 
   useEffect(() => {
     setExpandedGroups((prev) => {
@@ -423,6 +432,19 @@ export default function ManageWeaponScreen() {
       return areSelectionMapsEqual(prev, normalized) ? prev : normalized;
     });
   }, []);
+
+  useEffect(() => {
+    setSelectedPrograms((prev) => {
+      const allowedIds = new Set(programs.map((program) => program.id));
+      const filteredEntries = Object.entries(prev).filter(([programId]) =>
+        allowedIds.has(programId)
+      );
+      if (filteredEntries.length === Object.keys(prev).length) {
+        return prev;
+      }
+      return Object.fromEntries(filteredEntries);
+    });
+  }, [programs]);
 
   const resetForm = useCallback(() => {
     setDisplayName('');
@@ -881,27 +903,32 @@ export default function ManageWeaponScreen() {
           </ThemedText>
           <ThemedText style={styles.sectionSubtitle}>{t('weaponForm.programs.help')}</ThemedText>
 
-          {groupedPrograms.map((group) => {
-            const isExpanded = expandedGroups[group.id] ?? false;
-            return (
-              <View key={group.id} style={styles.programGroup}>
-                <Pressable
-                  onPress={() => toggleGroupExpansion(group.id)}
-                  style={[styles.programGroupHeader, programGroupHeaderThemeStyle]}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: isExpanded }}
-                  disabled={saving}
-                >
-                  <ThemedText style={styles.programGroupTitle}>{group.name}</ThemedText>
-                  <ThemedText style={styles.programGroupToggle}>
-                    {isExpanded
-                      ? t('weaponForm.programs.collapse')
-                      : t('weaponForm.programs.expand')}
-                  </ThemedText>
-                </Pressable>
-                {isExpanded ? (
-                  <View style={styles.programGroupBody}>
-                    {group.programs.map((program) => {
+          {membershipUnavailable || groupedPrograms.length === 0 ? (
+            <ThemedText style={styles.membershipNotice}>
+              {t('weaponForm.memberships.empty')}
+            </ThemedText>
+          ) : (
+            groupedPrograms.map((group) => {
+              const isExpanded = expandedGroups[group.id] ?? false;
+              return (
+                <View key={group.id} style={styles.programGroup}>
+                  <Pressable
+                    onPress={() => toggleGroupExpansion(group.id)}
+                    style={[styles.programGroupHeader, programGroupHeaderThemeStyle]}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: isExpanded }}
+                    disabled={saving}
+                  >
+                    <ThemedText style={styles.programGroupTitle}>{group.name}</ThemedText>
+                    <ThemedText style={styles.programGroupToggle}>
+                      {isExpanded
+                        ? t('weaponForm.programs.collapse')
+                        : t('weaponForm.programs.expand')}
+                    </ThemedText>
+                  </Pressable>
+                  {isExpanded ? (
+                    <View style={styles.programGroupBody}>
+                      {group.programs.map((program) => {
                       const selection = selectedPrograms[program.id];
                       const selected = Boolean(selection);
                       const isApproved = selection?.isApproved ?? false;
@@ -993,12 +1020,13 @@ export default function ManageWeaponScreen() {
                           ) : null}
                         </Pressable>
                       );
-                    })}
-                  </View>
-                ) : null}
-              </View>
-            );
-          })}
+                      })}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })
+          )}
         </View>
 
         <View style={styles.buttonGroup}>
@@ -1071,6 +1099,12 @@ const styles = StyleSheet.create({
   subtitle: {
     textAlign: 'center',
     opacity: 0.7,
+  },
+  membershipNotice: {
+    textAlign: 'center',
+    fontWeight: '600',
+    color: '#b45309',
+    marginTop: 8,
   },
   fieldSet: {
     gap: 16,

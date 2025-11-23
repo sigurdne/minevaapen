@@ -63,12 +63,26 @@ export default function HomeScreen() {
     loading: organizationsLoading,
     error: organizationsError,
   } = useOrganizations();
+
+  const memberOrganizations = useMemo(
+    () => organizations.filter((org) => org.isMember),
+    [organizations]
+  );
+
+  const memberOrganizationIds = useMemo(
+    () => memberOrganizations.map((org) => org.id),
+    [memberOrganizations]
+  );
+
   const {
     programs,
     loading: programsLoading,
     error: programsError,
     refresh: refreshPrograms,
-  } = usePrograms(selectedOrganizationId);
+  } = usePrograms({
+    organizationId: selectedOrganizationId,
+    allowedOrganizationIds: memberOrganizationIds,
+  });
   const {
     weapons,
     loading: weaponsLoading,
@@ -79,6 +93,7 @@ export default function HomeScreen() {
     programId: selectedProgramId,
     reserveFilter,
     ownershipFilter,
+    allowedOrganizationIds: memberOrganizationIds,
   });
 
   useFocusEffect(
@@ -94,17 +109,20 @@ export default function HomeScreen() {
   const filterSummaryThemeStyle =
     colorScheme === 'dark' ? styles.filterSummaryDark : styles.filterSummaryLight;
   const cardThemeStyle = colorScheme === 'dark' ? styles.cardDark : styles.cardLight;
+  const membershipUnavailable = !organizationsLoading && memberOrganizationIds.length === 0;
 
-  const organizationOptions = useMemo(
-    () => [
-      { id: null, label: t('weapons.filters.organizations.all') },
-      ...organizations.map((org) => ({
-        id: org.id,
-        label: org.shortName ? org.shortName : org.name,
-      })),
-    ],
-    [organizations, t]
-  );
+  const organizationOptions = useMemo(() => {
+    const items = memberOrganizations.map((org) => ({
+      id: org.id,
+      label: org.shortName ? org.shortName : org.name,
+    }));
+
+    if (items.length === 0) {
+      return items;
+    }
+
+    return [{ id: null, label: t('weapons.filters.organizations.all') }, ...items];
+  }, [memberOrganizations, t]);
 
   const programOptions = useMemo(
     () => [
@@ -183,6 +201,18 @@ export default function HomeScreen() {
       setProgramsExpanded(true);
     }
   }, [selectedProgramId]);
+
+  useEffect(() => {
+    if (selectedOrganizationId && !memberOrganizationIds.includes(selectedOrganizationId)) {
+      setSelectedOrganizationId(null);
+    }
+  }, [memberOrganizationIds, selectedOrganizationId]);
+
+  useEffect(() => {
+    if (selectedProgramId && !programs.some((program) => program.id === selectedProgramId)) {
+      setSelectedProgramId(null);
+    }
+  }, [programs, selectedProgramId]);
 
   const isLoading = organizationsLoading || programsLoading || weaponsLoading;
   const error = weaponsError ?? programsError ?? organizationsError;
@@ -389,6 +419,11 @@ export default function HomeScreen() {
           {t('weapons.title')}
         </ThemedText>
         <ThemedText style={styles.subtitle}>{t('weapons.subtitle')}</ThemedText>
+        {membershipUnavailable ? (
+          <ThemedText style={styles.membershipNotice}>
+            {t('weapons.memberships.empty')}
+          </ThemedText>
+        ) : null}
         <Link href="/weapon/manage" asChild>
           <Pressable style={styles.primaryButton}>
             <ThemedText style={styles.primaryButtonText}>
@@ -537,7 +572,11 @@ export default function HomeScreen() {
           contentContainerStyle={
             weapons.length === 0 ? [styles.center, styles.emptyContainer] : styles.listContent
           }
-          ListEmptyComponent={<ThemedText>{t('weapons.list.empty')}</ThemedText>}
+          ListEmptyComponent={
+            <ThemedText>
+              {membershipUnavailable ? t('weapons.memberships.empty') : t('weapons.list.empty')}
+            </ThemedText>
+          }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -568,6 +607,11 @@ const styles = StyleSheet.create({
   subtitle: {
     textAlign: 'center',
     opacity: 0.7,
+  },
+  membershipNotice: {
+    textAlign: 'center',
+    fontWeight: '600',
+    color: '#b45309',
   },
   primaryButton: {
     marginTop: 8,

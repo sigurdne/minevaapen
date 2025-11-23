@@ -4,7 +4,8 @@ export const createOrganizationsTable = `
     name TEXT NOT NULL,
     shortName TEXT NOT NULL,
     country TEXT,
-    orgNumber TEXT
+    orgNumber TEXT,
+    isMember INTEGER NOT NULL DEFAULT 1
   );
 `;
 

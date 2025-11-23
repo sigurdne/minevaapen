@@ -38,13 +38,21 @@ const seedDatabase = async (): Promise<void> => {
 
 const runMigrations = async (): Promise<void> => {
   await runWithinTransaction(async (db) => {
-    // Check if operationMode and caliber columns exist, add them if not
-    const tableInfo = await db.getAllAsync<{ name: string }>(
-      'PRAGMA table_info(weapons)'
-    );
-    const columnNames = tableInfo.map((col) => col.name);
+    const ensureColumns = async (
+      tableName: string,
+      definitions: Array<{ name: string; ddl: string }>
+    ) => {
+      const tableInfo = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${tableName})`);
+      const columnNames = tableInfo.map((col) => col.name);
 
-    const requiredColumns: Array<{ name: string; ddl: string }> = [
+      for (const column of definitions) {
+        if (!columnNames.includes(column.name)) {
+          await db.execAsync(column.ddl);
+        }
+      }
+    };
+
+    await ensureColumns('weapons', [
       { name: 'operationMode', ddl: 'ALTER TABLE weapons ADD COLUMN operationMode TEXT' },
       { name: 'caliber', ddl: 'ALTER TABLE weapons ADD COLUMN caliber TEXT' },
       {
@@ -54,13 +62,16 @@ const runMigrations = async (): Promise<void> => {
       { name: 'loanContactName', ddl: 'ALTER TABLE weapons ADD COLUMN loanContactName TEXT' },
       { name: 'loanStartDate', ddl: 'ALTER TABLE weapons ADD COLUMN loanStartDate TEXT' },
       { name: 'loanEndDate', ddl: 'ALTER TABLE weapons ADD COLUMN loanEndDate TEXT' },
-    ];
+    ]);
 
-    for (const column of requiredColumns) {
-      if (!columnNames.includes(column.name)) {
-        await db.execAsync(column.ddl);
-      }
-    }
+    await ensureColumns('organizations', [
+      {
+        name: 'isMember',
+        ddl: 'ALTER TABLE organizations ADD COLUMN isMember INTEGER NOT NULL DEFAULT 1',
+      },
+    ]);
+
+    await db.execAsync('UPDATE organizations SET isMember = 1 WHERE isMember IS NULL');
   });
 };
 
@@ -117,8 +128,8 @@ const insertOrganization = async (
   org: (typeof organizationSeeds)[number]
 ): Promise<void> => {
   await db.runAsync(
-    'INSERT OR IGNORE INTO organizations (id, name, shortName, country, orgNumber) VALUES (?, ?, ?, ?, ?)',
-    [org.id, org.name, org.shortName, org.country, org.orgNumber]
+    'INSERT OR IGNORE INTO organizations (id, name, shortName, country, orgNumber, isMember) VALUES (?, ?, ?, ?, ?, ?)',
+    [org.id, org.name, org.shortName, org.country, org.orgNumber, 1]
   );
 };
 

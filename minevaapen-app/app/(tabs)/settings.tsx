@@ -1,11 +1,12 @@
 import { ReactNode, useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useOrganizations, type Organization } from '@/src/hooks/use-organizations';
 import { backupDatabase, exportWeaponsToCsv, restoreDatabase } from '@/src/services/storage';
 
 type ActionStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -24,6 +25,17 @@ export default function SettingsScreen() {
   const [restoreState, setRestoreState] = useState<ActionState>(initialState);
   const [lastExportPath, setLastExportPath] = useState<string | null>(null);
   const [languageState, setLanguageState] = useState<ActionState>(initialState);
+  const [membershipState, setMembershipState] = useState<ActionState>(initialState);
+  const [pendingOrganizationId, setPendingOrganizationId] = useState<string | null>(null);
+
+  const {
+    organizations,
+    loading: organizationsLoading,
+    error: organizationsError,
+    updateMembership,
+    updateAllMemberships,
+    updating: membershipsUpdating,
+  } = useOrganizations();
 
   const handleBackup = useCallback(async () => {
     setBackupState({ status: 'loading', message: null });
@@ -150,6 +162,80 @@ export default function SettingsScreen() {
     [i18n, t]
   );
 
+  const memberCount = useMemo(
+    () => organizations.filter((org) => org.isMember).length,
+    [organizations]
+  );
+
+  const membershipSummary = useMemo(() => {
+    if (!organizations.length) {
+      return t('settings.memberships.empty');
+    }
+
+    return t('settings.memberships.selectedCount', {
+      count: memberCount,
+      total: organizations.length,
+    });
+  }, [memberCount, organizations.length, t]);
+
+  const membershipControlsDisabled = membershipsUpdating || Boolean(pendingOrganizationId);
+
+  const handleToggleMembership = useCallback(
+    async (organizationId: string, nextValue: boolean) => {
+      if (membershipControlsDisabled && pendingOrganizationId !== organizationId) {
+        return;
+      }
+
+      setPendingOrganizationId(organizationId);
+      setMembershipState(initialState);
+
+      try {
+        await updateMembership(organizationId, nextValue);
+        setMembershipState({
+          status: 'success',
+          message: t('settings.memberships.updateSuccess'),
+        });
+      } catch (error) {
+        console.warn('Failed to toggle membership', error);
+        setMembershipState({
+          status: 'error',
+          message: t('settings.memberships.updateError'),
+        });
+      } finally {
+        setPendingOrganizationId((current) => (current === organizationId ? null : current));
+      }
+    },
+    [membershipControlsDisabled, pendingOrganizationId, t, updateMembership]
+  );
+
+  const handleSetAllMemberships = useCallback(
+    async (isMember: boolean) => {
+      setMembershipState(initialState);
+      try {
+        await updateAllMemberships(isMember);
+        setMembershipState({
+          status: 'success',
+          message: t('settings.memberships.updateSuccess'),
+        });
+      } catch (error) {
+        console.warn('Failed to update all memberships', error);
+        setMembershipState({
+          status: 'error',
+          message: t('settings.memberships.updateError'),
+        });
+      }
+    },
+    [t, updateAllMemberships]
+  );
+
+  const handleSelectAllMemberships = useCallback(() => {
+    void handleSetAllMemberships(true);
+  }, [handleSetAllMemberships]);
+
+  const handleSelectNoMemberships = useCallback(() => {
+    void handleSetAllMemberships(false);
+  }, [handleSetAllMemberships]);
+
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -188,6 +274,24 @@ export default function SettingsScreen() {
             disabled: !lastExportPath || exportState.status === 'loading',
             icon: <Feather name="share-2" size={18} color="#2563eb" />,
           }}
+        />
+
+        <MembershipCard
+          title={t('settings.memberships.title')}
+          description={t('settings.memberships.description')}
+          summary={membershipSummary}
+          organizations={organizations}
+          loading={organizationsLoading}
+          error={organizationsError}
+          state={membershipState}
+          disabled={membershipControlsDisabled || organizationsLoading}
+          pendingOrganizationId={pendingOrganizationId}
+          onToggleMembership={handleToggleMembership}
+          onSelectAll={handleSelectAllMemberships}
+          onSelectNone={handleSelectNoMemberships}
+          selectAllLabel={t('settings.memberships.selectAll')}
+          selectNoneLabel={t('settings.memberships.selectNone')}
+          emptyLabel={t('settings.memberships.empty')}
         />
 
         <ThemedView style={styles.languageCard} lightColor="#ffffff" darkColor="rgba(255,255,255,0.05)">
@@ -310,6 +414,110 @@ function ActionCard({ title, description, buttonLabel, state, onPress, secondary
   );
 }
 
+type MembershipCardProps = {
+  title: string;
+  description: string;
+  summary: string;
+  organizations: Organization[];
+  loading: boolean;
+  error: Error | null;
+  state: ActionState;
+  disabled: boolean;
+  pendingOrganizationId: string | null;
+  onToggleMembership: (organizationId: string, nextValue: boolean) => void;
+  onSelectAll: () => void;
+  onSelectNone: () => void;
+  selectAllLabel: string;
+  selectNoneLabel: string;
+  emptyLabel: string;
+};
+
+function MembershipCard({
+  title,
+  description,
+  summary,
+  organizations,
+  loading,
+  error,
+  state,
+  disabled,
+  pendingOrganizationId,
+  onToggleMembership,
+  onSelectAll,
+  onSelectNone,
+  selectAllLabel,
+  selectNoneLabel,
+  emptyLabel,
+}: MembershipCardProps) {
+  const isSuccess = state.status === 'success';
+  const isError = state.status === 'error';
+
+  return (
+    <ThemedView style={styles.membershipCard} lightColor="#ffffff" darkColor="rgba(255,255,255,0.05)">
+      <ThemedText type="subtitle" style={styles.cardTitle}>
+        {title}
+      </ThemedText>
+      <ThemedText style={styles.cardDescription}>{description}</ThemedText>
+      <ThemedText style={styles.membershipSummary}>{summary}</ThemedText>
+
+      <View style={styles.membershipActions}>
+        <Pressable
+          style={[styles.membershipActionButton, disabled && styles.cardButtonDisabled]}
+          onPress={onSelectAll}
+          disabled={disabled}
+        >
+          <ThemedText style={styles.cardButtonLabel}>{selectAllLabel}</ThemedText>
+        </Pressable>
+        <Pressable
+          style={[styles.membershipActionButton, disabled && styles.cardButtonDisabled]}
+          onPress={onSelectNone}
+          disabled={disabled}
+        >
+          <ThemedText style={styles.cardButtonLabel}>{selectNoneLabel}</ThemedText>
+        </Pressable>
+      </View>
+
+      <View style={styles.membershipList}>
+        {loading ? (
+          <ActivityIndicator />
+        ) : error ? (
+          <ThemedText style={[styles.cardStatus, styles.cardStatusError]}>
+            {error.message}
+          </ThemedText>
+        ) : organizations.length === 0 ? (
+          <ThemedText style={styles.cardDescription}>{emptyLabel}</ThemedText>
+        ) : (
+          organizations.map((organization) => (
+            <View key={organization.id} style={styles.membershipRow}>
+              <View style={styles.membershipInfo}>
+                <ThemedText style={styles.membershipName}>{organization.name}</ThemedText>
+                <ThemedText style={styles.membershipShort}>{organization.shortName}</ThemedText>
+              </View>
+              <Switch
+                value={organization.isMember}
+                onValueChange={(nextValue) => onToggleMembership(organization.id, nextValue)}
+                disabled={disabled || pendingOrganizationId === organization.id}
+              />
+            </View>
+          ))
+        )}
+      </View>
+
+      {state.message ? (
+        <ThemedText
+          style={[
+            styles.cardStatus,
+            isSuccess && styles.cardStatusSuccess,
+            isError && styles.cardStatusError,
+          ]}
+        >
+          {state.message}
+        </ThemedText>
+      ) : null}
+    </ThemedView>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -398,9 +606,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(37, 99, 235, 0.4)',
-    alignItems: 'center',
   },
   languageButtonSelected: {
     backgroundColor: 'rgba(37, 99, 235, 0.2)',
@@ -411,5 +616,44 @@ const styles = StyleSheet.create({
   },
   languageButtonLabelSelected: {
     color: '#2563eb',
+  },
+  membershipSummary: {
+    fontWeight: '600',
+  },
+  membershipCard: {
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  membershipActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  membershipActionButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+    alignItems: 'center',
+  },
+  membershipList: {
+    gap: 12,
+  },
+  membershipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148, 163, 184, 0.3)',
+  },
+  membershipInfo: {
+    flex: 1,
+  },
+  membershipName: {
+    fontWeight: '600',
+  },
+  membershipShort: {
+    opacity: 0.7,
   },
 });
