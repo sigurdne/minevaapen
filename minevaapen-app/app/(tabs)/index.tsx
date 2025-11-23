@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -62,6 +62,7 @@ export default function HomeScreen() {
     organizations,
     loading: organizationsLoading,
     error: organizationsError,
+    refresh: refreshOrganizations,
   } = useOrganizations();
 
   const memberOrganizations = useMemo(
@@ -96,11 +97,28 @@ export default function HomeScreen() {
     allowedOrganizationIds: memberOrganizationIds,
   });
 
+  const refreshWeaponsRef = useRef(refreshWeapons);
+  const refreshProgramsRef = useRef(refreshPrograms);
+  const refreshOrganizationsRef = useRef(refreshOrganizations);
+
+  useEffect(() => {
+    refreshWeaponsRef.current = refreshWeapons;
+  }, [refreshWeapons]);
+
+  useEffect(() => {
+    refreshProgramsRef.current = refreshPrograms;
+  }, [refreshPrograms]);
+
+  useEffect(() => {
+    refreshOrganizationsRef.current = refreshOrganizations;
+  }, [refreshOrganizations]);
+
   useFocusEffect(
     useCallback(() => {
-      void refreshWeapons();
-      void refreshPrograms();
-    }, [refreshPrograms, refreshWeapons])
+      refreshWeaponsRef.current?.();
+      refreshProgramsRef.current?.();
+      refreshOrganizationsRef.current?.();
+    }, [])
   );
 
   const colorScheme = useColorScheme();
