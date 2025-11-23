@@ -32,6 +32,8 @@ const seedDatabase = async (): Promise<void> => {
   await runMigrations();
   await seedOrganizationsIfEmpty();
   await seedProgramsIfEmpty();
+  await syncOrganizationsWithSeeds();
+  await syncProgramsWithSeeds();
   await seedWeaponsIfEmpty();
   await seedWeaponProgramsIfEmpty();
 };
@@ -67,11 +69,11 @@ const runMigrations = async (): Promise<void> => {
     await ensureColumns('organizations', [
       {
         name: 'isMember',
-        ddl: 'ALTER TABLE organizations ADD COLUMN isMember INTEGER NOT NULL DEFAULT 1',
+        ddl: 'ALTER TABLE organizations ADD COLUMN isMember INTEGER NOT NULL DEFAULT 0',
       },
     ]);
 
-    await db.execAsync('UPDATE organizations SET isMember = 1 WHERE isMember IS NULL');
+    await db.execAsync('UPDATE organizations SET isMember = 0 WHERE isMember IS NULL');
   });
 };
 
@@ -92,6 +94,22 @@ const seedProgramsIfEmpty = async (): Promise<void> => {
     return;
   }
 
+  await runWithinTransaction(async (db) => {
+    for (const program of programSeeds) {
+      await insertProgram(db, program);
+    }
+  });
+};
+
+const syncOrganizationsWithSeeds = async (): Promise<void> => {
+  await runWithinTransaction(async (db) => {
+    for (const org of organizationSeeds) {
+      await insertOrganization(db, org);
+    }
+  });
+};
+
+const syncProgramsWithSeeds = async (): Promise<void> => {
   await runWithinTransaction(async (db) => {
     for (const program of programSeeds) {
       await insertProgram(db, program);
@@ -129,7 +147,7 @@ const insertOrganization = async (
 ): Promise<void> => {
   await db.runAsync(
     'INSERT OR IGNORE INTO organizations (id, name, shortName, country, orgNumber, isMember) VALUES (?, ?, ?, ?, ?, ?)',
-    [org.id, org.name, org.shortName, org.country, org.orgNumber, 1]
+    [org.id, org.name, org.shortName, org.country, org.orgNumber, 0]
   );
 };
 
