@@ -122,7 +122,7 @@ const parseIsoDate = (value: string | null | undefined): Date | null => {
   return new Date(year, month - 1, day);
 };
 
-const formatLoanDateLabel = (value: string | null, locale: string, placeholder: string) => {
+const formatDateLabel = (value: string | null, locale: string, placeholder: string) => {
   if (!value) {
     return placeholder;
   }
@@ -140,7 +140,7 @@ const formatLoanDateLabel = (value: string | null, locale: string, placeholder: 
       day: 'numeric',
     }).format(parsed);
   } catch (error) {
-    console.warn('Failed to format loan date, falling back to ISO', error);
+    console.warn('Failed to format date label, falling back to ISO', error);
     return value;
   }
 };
@@ -192,6 +192,7 @@ export default function ManageWeaponScreen() {
   const [loanEndDate, setLoanEndDate] = useState<string | null>(null);
   const [isShowingLoanStartPicker, setIsShowingLoanStartPicker] = useState(false);
   const [isShowingLoanEndPicker, setIsShowingLoanEndPicker] = useState(false);
+  const [isShowingAcquisitionDatePicker, setIsShowingAcquisitionDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
@@ -308,6 +309,7 @@ export default function ManageWeaponScreen() {
       const next = !previous;
       if (Platform.OS === 'ios' && next) {
         setIsShowingLoanEndPicker(false);
+        setIsShowingAcquisitionDatePicker(false);
       }
       return next;
     });
@@ -318,6 +320,18 @@ export default function ManageWeaponScreen() {
       const next = !previous;
       if (Platform.OS === 'ios' && next) {
         setIsShowingLoanStartPicker(false);
+        setIsShowingAcquisitionDatePicker(false);
+      }
+      return next;
+    });
+  }, []);
+
+  const openAcquisitionDatePicker = useCallback(() => {
+    setIsShowingAcquisitionDatePicker((previous) => {
+      const next = !previous;
+      if (Platform.OS === 'ios' && next) {
+        setIsShowingLoanStartPicker(false);
+        setIsShowingLoanEndPicker(false);
       }
       return next;
     });
@@ -369,6 +383,23 @@ export default function ManageWeaponScreen() {
 
   const handleClearLoanEnd = useCallback(() => {
     setLoanEndDate(null);
+  }, []);
+
+  const handleAcquisitionDateChange = useCallback((event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setIsShowingAcquisitionDatePicker(false);
+    }
+
+    if (event.type !== 'set' || !date) {
+      return;
+    }
+
+    const isoValue = toIsoDateString(date);
+    setAcquisitionDate(isoValue);
+  }, []);
+
+  const handleClearAcquisitionDate = useCallback(() => {
+    setAcquisitionDate('');
   }, []);
 
   const toggleProgramSelection = useCallback((programId: string) => {
@@ -718,7 +749,7 @@ export default function ManageWeaponScreen() {
                       disabled={saving}
                     >
                       <ThemedText style={styles.dateButtonText}>
-                        {formatLoanDateLabel(
+                        {formatDateLabel(
                           loanStartDate,
                           i18n.language,
                           t('weaponForm.loan.datePlaceholder')
@@ -755,7 +786,7 @@ export default function ManageWeaponScreen() {
                       disabled={saving}
                     >
                       <ThemedText style={styles.dateButtonText}>
-                        {formatLoanDateLabel(
+                        {formatDateLabel(
                           loanEndDate,
                           i18n.language,
                           t('weaponForm.loan.datePlaceholder')
@@ -819,14 +850,36 @@ export default function ManageWeaponScreen() {
           </FormField>
 
           <FormField label={t('weaponForm.fields.acquisitionDate')}>
-            <TextInput
-              value={acquisitionDate}
-              onChangeText={setAcquisitionDate}
-              style={[styles.input, inputThemeStyle]}
-              placeholder="2024-01-31"
-              placeholderTextColor={placeholderColor}
-              editable={!saving}
-            />
+            <View style={styles.dateButtonRow}>
+              <Pressable
+                onPress={openAcquisitionDatePicker}
+                style={[styles.chip, styles.dateButton, chipThemeStyle]}
+                disabled={saving}
+              >
+                <ThemedText style={styles.dateButtonText}>
+                  {formatDateLabel(
+                    acquisitionDate,
+                    i18n.language,
+                    t('weaponForm.loan.datePlaceholder')
+                  )}
+                </ThemedText>
+              </Pressable>
+              {acquisitionDate ? (
+                <Pressable onPress={handleClearAcquisitionDate} disabled={saving}>
+                  <ThemedText style={styles.clearDateText}>
+                    {t('weaponForm.loan.clearDate')}
+                  </ThemedText>
+                </Pressable>
+              ) : null}
+            </View>
+            {isShowingAcquisitionDatePicker ? (
+              <DateTimePicker
+                value={parseIsoDate(acquisitionDate) ?? new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleAcquisitionDateChange}
+              />
+            ) : null}
           </FormField>
 
           <FormField label={t('weaponForm.fields.acquisitionPrice')}>
