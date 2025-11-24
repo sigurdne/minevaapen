@@ -4,7 +4,6 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
@@ -16,7 +15,6 @@ import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { WeaponWithPrograms } from '@/src/database/weapons-repository';
 import { useOrganizations } from '@/src/hooks/use-organizations';
-import { usePrograms } from '@/src/hooks/use-programs';
 import { useWeapons } from '@/src/hooks/use-weapons';
 
 type ReserveFilterValue = 'any' | 'reserveOnly' | 'nonReserve';
@@ -49,13 +47,9 @@ const formatLoanDate = (value: string | null, locale: string) => {
 
 export default function HomeScreen() {
   const { t, i18n } = useTranslation();
-  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
-  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [reserveFilter, setReserveFilter] = useState<ReserveFilterValue>('any');
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilterValue>('all');
   const [refreshing, setRefreshing] = useState(false);
-  const [organizationsExpanded, setOrganizationsExpanded] = useState(false);
-  const [programsExpanded, setProgramsExpanded] = useState(false);
   const [expandedWeaponIds, setExpandedWeaponIds] = useState<Set<string>>(new Set());
 
   const {
@@ -76,38 +70,24 @@ export default function HomeScreen() {
   );
 
   const {
-    programs,
-    loading: programsLoading,
-    error: programsError,
-    refresh: refreshPrograms,
-  } = usePrograms({
-    organizationId: selectedOrganizationId,
-    allowedOrganizationIds: memberOrganizationIds,
-  });
-  const {
     weapons,
     loading: weaponsLoading,
     error: weaponsError,
     refresh: refreshWeapons,
   } = useWeapons({
-    organizationId: selectedOrganizationId,
-    programId: selectedProgramId,
+    organizationId: null,
+    programId: null,
     reserveFilter,
     ownershipFilter,
     allowedOrganizationIds: memberOrganizationIds,
   });
 
   const refreshWeaponsRef = useRef(refreshWeapons);
-  const refreshProgramsRef = useRef(refreshPrograms);
   const refreshOrganizationsRef = useRef(refreshOrganizations);
 
   useEffect(() => {
     refreshWeaponsRef.current = refreshWeapons;
   }, [refreshWeapons]);
-
-  useEffect(() => {
-    refreshProgramsRef.current = refreshPrograms;
-  }, [refreshPrograms]);
 
   useEffect(() => {
     refreshOrganizationsRef.current = refreshOrganizations;
@@ -116,44 +96,13 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       refreshWeaponsRef.current?.();
-      refreshProgramsRef.current?.();
       refreshOrganizationsRef.current?.();
     }, [])
   );
 
   const colorScheme = useColorScheme();
-  const filterHeaderThemeStyle =
-    colorScheme === 'dark' ? styles.filterHeaderDark : styles.filterHeaderLight;
-  const filterSummaryThemeStyle =
-    colorScheme === 'dark' ? styles.filterSummaryDark : styles.filterSummaryLight;
   const cardThemeStyle = colorScheme === 'dark' ? styles.cardDark : styles.cardLight;
   const membershipUnavailable = !organizationsLoading && memberOrganizationIds.length === 0;
-
-  const organizationOptions = useMemo(() => {
-    const items = memberOrganizations.map((org) => ({
-      id: org.id,
-      label: org.shortName ? org.shortName : org.name,
-    }));
-
-    if (items.length === 0) {
-      return items;
-    }
-
-    return [{ id: null, label: t('weapons.filters.organizations.all') }, ...items];
-  }, [memberOrganizations, t]);
-
-  const programOptions = useMemo(
-    () => [
-      { id: null, label: t('weapons.filters.programs.all'), weaponCount: 0, reserveCount: 0 },
-      ...programs.map((program) => ({
-        id: program.id,
-        label: program.name,
-        weaponCount: program.weaponCount,
-        reserveCount: program.reserveCount,
-      })),
-    ],
-    [programs, t]
-  );
 
   const reserveOptions = useMemo(
     () => [
@@ -173,82 +122,8 @@ export default function HomeScreen() {
     [t]
   );
 
-  const selectedOrganizationLabel = useMemo(() => {
-    if (!selectedOrganizationId) {
-      return null;
-    }
-
-    const match = organizationOptions.find((option) => option.id === selectedOrganizationId);
-    return match?.label ?? selectedOrganizationId;
-  }, [organizationOptions, selectedOrganizationId]);
-
-  const selectedProgramLabel = useMemo(() => {
-    if (!selectedProgramId) {
-      return null;
-    }
-
-    const match = programOptions.find((option) => option.id === selectedProgramId);
-    return match?.label ?? selectedProgramId;
-  }, [programOptions, selectedProgramId]);
-
-  const selectedProgramSummary = useMemo(() => {
-    if (!selectedProgramId) {
-      return null;
-    }
-
-    const match = programs.find((program) => program.id === selectedProgramId);
-    if (!match) {
-      return null;
-    }
-
-    return t('weapons.programSummary', {
-      name: match.name,
-      weaponCount: match.weaponCount,
-      reserveCount: match.reserveCount,
-    });
-  }, [programs, selectedProgramId, t]);
-
-  useEffect(() => {
-    if (selectedOrganizationId) {
-      setOrganizationsExpanded(true);
-    }
-  }, [selectedOrganizationId]);
-
-  useEffect(() => {
-    if (selectedProgramId) {
-      setProgramsExpanded(true);
-    }
-  }, [selectedProgramId]);
-
-  useEffect(() => {
-    if (selectedOrganizationId && !memberOrganizationIds.includes(selectedOrganizationId)) {
-      setSelectedOrganizationId(null);
-    }
-  }, [memberOrganizationIds, selectedOrganizationId]);
-
-  useEffect(() => {
-    if (selectedProgramId && !programs.some((program) => program.id === selectedProgramId)) {
-      setSelectedProgramId(null);
-    }
-  }, [programs, selectedProgramId]);
-
-  const isLoading = organizationsLoading || programsLoading || weaponsLoading;
-  const error = weaponsError ?? programsError ?? organizationsError;
-
-  const handleSelectOrganization = useCallback(
-    (id: string | null) => {
-      setSelectedOrganizationId((previous) => {
-        const next = previous === id ? null : id;
-        return next;
-      });
-      setSelectedProgramId(null);
-    },
-    []
-  );
-
-  const handleSelectProgram = useCallback((id: string | null) => {
-    setSelectedProgramId((previous) => (previous === id ? null : id));
-  }, []);
+  const isLoading = organizationsLoading || weaponsLoading;
+  const error = weaponsError ?? organizationsError;
 
   const handleSelectReserve = useCallback((value: ReserveFilterValue) => {
     setReserveFilter((previous) => (previous === value ? 'any' : value));
@@ -258,22 +133,14 @@ export default function HomeScreen() {
     setOwnershipFilter((previous) => (previous === value ? 'all' : value));
   }, []);
 
-  const toggleOrganizationsExpanded = useCallback(() => {
-    setOrganizationsExpanded((prev) => !prev);
-  }, []);
-
-  const toggleProgramsExpanded = useCallback(() => {
-    setProgramsExpanded((prev) => !prev);
-  }, []);
-
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([refreshWeapons(), refreshPrograms()]);
+      await refreshWeapons();
     } finally {
       setRefreshing(false);
     }
-  }, [refreshPrograms, refreshWeapons]);
+  }, [refreshWeapons]);
 
   const toggleWeaponExpansion = useCallback((weaponId: string) => {
     setExpandedWeaponIds((prev) => {
@@ -452,93 +319,6 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.filtersSection}>
-        <View style={styles.filterGroup}>
-          <Pressable
-            onPress={toggleOrganizationsExpanded}
-            style={[styles.filterHeader, filterHeaderThemeStyle]}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: organizationsExpanded }}
-          >
-            <ThemedText type="subtitle" style={styles.filterTitle}>
-              {t('weapons.filters.organizations.title')}
-            </ThemedText>
-            <ThemedText style={styles.filterToggleText}>
-              {organizationsExpanded
-                ? t('weapons.filters.toggle.hide')
-                : t('weapons.filters.toggle.show')}
-            </ThemedText>
-          </Pressable>
-          {!organizationsExpanded && selectedOrganizationLabel ? (
-            <ThemedText style={[styles.filterSummary, filterSummaryThemeStyle]}>
-              {t('weapons.filters.selected', { value: selectedOrganizationLabel })}
-            </ThemedText>
-          ) : null}
-          {organizationsExpanded ? (
-            <View style={styles.filterBody}>
-              <View style={styles.filterRow}>
-                {organizationOptions.map((option) => (
-                  <FilterChip
-                    key={option.id ?? 'all-organizations'}
-                    label={option.label}
-                    selected={selectedOrganizationId === option.id}
-                    onPress={() => handleSelectOrganization(option.id)}
-                  />
-                ))}
-              </View>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={styles.filterGroup}>
-          <Pressable
-            onPress={toggleProgramsExpanded}
-            style={[styles.filterHeader, filterHeaderThemeStyle]}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: programsExpanded }}
-          >
-            <ThemedText type="subtitle" style={styles.filterTitle}>
-              {t('weapons.filters.programs.title')}
-            </ThemedText>
-            <ThemedText style={styles.filterToggleText}>
-              {programsExpanded
-                ? t('weapons.filters.toggle.hide')
-                : t('weapons.filters.toggle.show')}
-            </ThemedText>
-          </Pressable>
-          {!programsExpanded ? (
-            selectedProgramSummary ? (
-              <ThemedText style={[styles.filterSummary, filterSummaryThemeStyle]}>
-                {selectedProgramSummary}
-              </ThemedText>
-            ) : selectedProgramLabel ? (
-              <ThemedText style={[styles.filterSummary, filterSummaryThemeStyle]}>
-                {t('weapons.filters.selected', { value: selectedProgramLabel })}
-              </ThemedText>
-            ) : null
-          ) : null}
-          {programsExpanded ? (
-            <View style={styles.filterBody}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filterRowScroll}
-              >
-                {programOptions.map((option) => (
-                  <FilterChip
-                    key={option.id ?? 'all-programs'}
-                    label={option.label}
-                    selected={selectedProgramId === option.id}
-                    onPress={() => handleSelectProgram(option.id)}
-                  />
-                ))}
-              </ScrollView>
-              {selectedProgramSummary ? (
-                <ThemedText style={styles.programSummary}>{selectedProgramSummary}</ThemedText>
-              ) : null}
-            </View>
-          ) : null}
-        </View>
-
         <View style={styles.filterGroup}>
           <ThemedText type="subtitle" style={styles.filterTitle}>
             {t('weapons.filters.reserve.title')}
