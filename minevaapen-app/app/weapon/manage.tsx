@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import DateTimePicker, {
   type DateTimePickerEvent,
@@ -196,6 +197,7 @@ export default function ManageWeaponScreen() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const inputThemeStyle = colorScheme === 'dark' ? styles.inputDark : styles.inputLight;
   const placeholderColor =
@@ -651,7 +653,7 @@ export default function ManageWeaponScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}>
         <View style={styles.header}>
           <ThemedText type="title" style={styles.title}>
             {isEditMode ? t('weaponForm.title.edit') : t('weaponForm.title.new')}
