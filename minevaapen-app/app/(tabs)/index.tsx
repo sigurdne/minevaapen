@@ -79,7 +79,6 @@ export default function HomeScreen() {
     programId: null,
     reserveFilter,
     ownershipFilter,
-    allowedOrganizationIds: memberOrganizationIds,
   });
 
   const refreshWeaponsRef = useRef(refreshWeapons);
