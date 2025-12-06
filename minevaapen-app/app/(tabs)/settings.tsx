@@ -2,12 +2,18 @@ import { ReactNode, useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
+import * as DocumentPicker from 'expo-document-picker';
 import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useOrganizations, type Organization } from '@/src/hooks/use-organizations';
-import { backupDatabase, exportWeaponsToCsv, restoreDatabase } from '@/src/services/storage';
+import {
+  backupDatabase,
+  exportWeaponsToCsv,
+  restoreDatabase,
+  restoreDatabaseFromUri,
+} from '@/src/services/storage';
 
 type ActionStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -21,6 +27,7 @@ const initialState: ActionState = { status: 'idle', message: null };
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
   const [backupState, setBackupState] = useState<ActionState>(initialState);
+  const [lastBackupPath, setLastBackupPath] = useState<string | null>(null);
   const [exportState, setExportState] = useState<ActionState>(initialState);
   const [restoreState, setRestoreState] = useState<ActionState>(initialState);
   const [lastExportPath, setLastExportPath] = useState<string | null>(null);
@@ -46,12 +53,14 @@ export default function SettingsScreen() {
         status: 'success',
         message: t('settings.backup.success', { path }),
       });
+      setLastBackupPath(path);
     } catch (error) {
       console.warn('Database backup failed', error);
       setBackupState({
         status: 'error',
         message: t('settings.backup.error'),
       });
+      setLastBackupPath(null);
     }
   }, [t]);
 
@@ -92,6 +101,63 @@ export default function SettingsScreen() {
       });
     }
   }, [t]);
+
+  const handleRestoreFromFile = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      setRestoreState({ status: 'loading', message: null });
+
+      const asset = result.assets[0];
+      await restoreDatabaseFromUri(asset.uri);
+
+      setRestoreState({
+        status: 'success',
+        message: t('settings.restore.success', { path: asset.name }),
+      });
+    } catch (error) {
+      console.warn('Database restore from file failed', error);
+      setRestoreState({
+        status: 'error',
+        message: t('settings.restore.error'),
+      });
+    }
+  }, [t]);
+
+  const handleShareBackup = useCallback(async () => {
+    if (!lastBackupPath) {
+      return;
+    }
+
+    try {
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        setBackupState({
+          status: 'error',
+          message: t('settings.backup.shareUnavailable'),
+        });
+        return;
+      }
+
+      await Sharing.shareAsync(lastBackupPath, {
+        dialogTitle: t('settings.backup.shareDialogTitle'),
+        mimeType: 'application/x-sqlite3',
+      });
+    } catch (error) {
+      console.warn('Backup share failed', error);
+      setBackupState({
+        status: 'error',
+        message: t('settings.backup.shareError'),
+      });
+    }
+  }, [lastBackupPath, t]);
 
   const handleShareExport = useCallback(async () => {
     if (!lastExportPath) {
@@ -252,6 +318,12 @@ export default function SettingsScreen() {
           buttonLabel={t('settings.backup.button')}
           state={backupState}
           onPress={handleBackup}
+          secondaryAction={{
+            label: t('settings.backup.shareButton'),
+            onPress: handleShareBackup,
+            disabled: !lastBackupPath || backupState.status === 'loading',
+            icon: <Feather name="share-2" size={18} color="#2563eb" />,
+          }}
         />
 
         <ActionCard
@@ -260,6 +332,12 @@ export default function SettingsScreen() {
           buttonLabel={t('settings.restore.button')}
           state={restoreState}
           onPress={handleRestore}
+          secondaryAction={{
+            label: t('settings.restore.fileButton'),
+            onPress: handleRestoreFromFile,
+            disabled: restoreState.status === 'loading',
+            icon: <Feather name="folder" size={18} color="#2563eb" />,
+          }}
         />
 
         <ActionCard

@@ -109,6 +109,18 @@ export const restoreDatabase = async (
   return selectedBackup;
 };
 
+export const restoreDatabaseFromUri = async (sourceUri: string): Promise<void> => {
+  await ensureDirectory(SQLITE_DIRECTORY);
+
+  const databaseFile = new FileSystem.File(DB_PATH);
+  if (FileSystem.Paths.info(DB_PATH).exists) {
+    databaseFile.delete();
+  }
+
+  const sourceFile = new FileSystem.File(sourceUri);
+  sourceFile.copy(databaseFile);
+};
+
 type CsvValue = string | number | null | undefined;
 
 const toCsvValue = (value: CsvValue): string => {
