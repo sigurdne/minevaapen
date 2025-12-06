@@ -34,8 +34,8 @@ const seedDatabase = async (): Promise<void> => {
   await seedProgramsIfEmpty();
   await syncOrganizationsWithSeeds();
   await syncProgramsWithSeeds();
-  await seedWeaponsIfEmpty();
-  await seedWeaponProgramsIfEmpty();
+  // await seedWeaponsIfEmpty();
+  // await seedWeaponProgramsIfEmpty();
 };
 
 const runMigrations = async (): Promise<void> => {
