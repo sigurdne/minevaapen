@@ -5,6 +5,7 @@ import {
   type WeaponFilters,
   type WeaponWithPrograms,
 } from '@/src/database/weapons-repository';
+import { DATABASE_EVENTS, databaseEvents } from '@/src/services/events';
 
 export const useWeapons = (filters: WeaponFilters = {}) => {
   const [weapons, setWeapons] = useState<WeaponWithPrograms[]>([]);
@@ -41,6 +42,14 @@ export const useWeapons = (filters: WeaponFilters = {}) => {
 
   useEffect(() => {
     void load();
+
+    const subscription = databaseEvents.addListener(DATABASE_EVENTS.RESTORED, () => {
+      void load();
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, [load]);
 
   return { weapons, loading, error, refresh: load };

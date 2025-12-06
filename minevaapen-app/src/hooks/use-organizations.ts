@@ -6,6 +6,7 @@ import {
   setOrganizationMembership,
   type OrganizationRecord,
 } from '@/src/database/organizations-repository';
+import { DATABASE_EVENTS, databaseEvents } from '@/src/services/events';
 
 export type Organization = OrganizationRecord;
 
@@ -30,6 +31,14 @@ export const useOrganizations = () => {
 
   useEffect(() => {
     void load();
+
+    const subscription = databaseEvents.addListener(DATABASE_EVENTS.RESTORED, () => {
+      void load();
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, [load]);
 
   const refresh = load;

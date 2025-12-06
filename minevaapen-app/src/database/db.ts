@@ -9,3 +9,10 @@ export const getDatabase = (): SQLiteDatabase => {
 
   return dbInstance;
 };
+
+export const closeDatabase = async (): Promise<void> => {
+  if (dbInstance) {
+    await dbInstance.closeAsync();
+    dbInstance = null;
+  }
+};

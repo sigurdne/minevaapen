@@ -1,6 +1,8 @@
 import * as FileSystem from 'expo-file-system';
 
+import { closeDatabase } from '@/src/database/db';
 import { fetchWeapons } from '@/src/database/weapons-repository';
+import { databaseEvents } from '@/src/services/events';
 
 const DOCUMENT_DIRECTORY = FileSystem.Paths.document.uri;
 const SQLITE_DIRECTORY = FileSystem.Paths.join(DOCUMENT_DIRECTORY, 'SQLite');
@@ -97,6 +99,7 @@ export const restoreDatabase = async (
     selectedBackup = backups[0];
   }
 
+  await closeDatabase();
   await ensureDirectory(SQLITE_DIRECTORY);
   const databaseFile = new FileSystem.File(DB_PATH);
   if (FileSystem.Paths.info(DB_PATH).exists) {
@@ -106,10 +109,13 @@ export const restoreDatabase = async (
   const selectedFile = new FileSystem.File(selectedBackup.path);
   selectedFile.copy(databaseFile);
 
+  databaseEvents.emitRestored();
+
   return selectedBackup;
 };
 
 export const restoreDatabaseFromUri = async (sourceUri: string): Promise<void> => {
+  await closeDatabase();
   await ensureDirectory(SQLITE_DIRECTORY);
 
   const databaseFile = new FileSystem.File(DB_PATH);
@@ -119,6 +125,8 @@ export const restoreDatabaseFromUri = async (sourceUri: string): Promise<void> =
 
   const sourceFile = new FileSystem.File(sourceUri);
   sourceFile.copy(databaseFile);
+
+  databaseEvents.emitRestored();
 };
 
 type CsvValue = string | number | null | undefined;
