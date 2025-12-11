@@ -163,3 +163,41 @@ footer a {
         padding: 1.5rem;
     }
 }
+
+/* Screenshots */
+.screenshots {
+    padding: 2rem 0;
+    background-color: var(--bg-color);
+}
+
+.screenshots-scroll {
+    display: flex;
+    overflow-x: auto;
+    gap: 20px;
+    padding-bottom: 20px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scroll-snap-type: x mandatory;
+}
+
+.screenshots-scroll img {
+    height: 500px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    flex-shrink: 0;
+    scroll-snap-align: center;
+}
+
+.screenshots-scroll::-webkit-scrollbar {
+    height: 8px;
+}
+
+.screenshots-scroll::-webkit-scrollbar-track {
+    background: #e1e1e1;
+    border-radius: 4px;
+}
+
+.screenshots-scroll::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
