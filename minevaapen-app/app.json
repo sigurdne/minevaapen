@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Mine Våpen",
-    "slug": "minevaapen-app",
+    "slug": "minevapen",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -20,7 +20,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.sigurdne.minevaapenapp"
+      "package": "com.sigurdne.minevapen"
     },
     "web": {
       "output": "static",
@@ -49,7 +49,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "85da486f-c1be-48dd-99bb-b69dfdb97684"
+        "projectId": "e4aaabba-0e01-4ba7-aba7-0b8a0dbc098e"
       }
     },
     "owner": "sigurdne"
