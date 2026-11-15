@@ -22,14 +22,14 @@ export default function TabLayout() {
         name="index"
         options={{
           title: t('navigation.tabs.weapons'),
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ focused }) => <IconSymbol size={28} name="house.fill" color={focused ? Colors[colorScheme ?? 'light'].tint : Colors[colorScheme ?? 'light'].tabIconDefault} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: t('navigation.tabs.settings'),
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gearshape.fill" color={color} />,
+          tabBarIcon: ({ focused }) => <IconSymbol size={28} name="gearshape.fill" color={focused ? Colors[colorScheme ?? 'light'].tint : Colors[colorScheme ?? 'light'].tabIconDefault} />,
         }}
       />
     </Tabs>
