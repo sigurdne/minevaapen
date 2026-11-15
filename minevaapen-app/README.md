@@ -4,17 +4,13 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 ## Get started
 
-1. Install dependencies
+Run these commands from the Expo app directory. If your terminal is at the repository root, enter `minevaapen-app` first:
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
+```bash
+cd minevaapen-app
+npm ci
+npx expo start
+```
 
 In the output, you'll find options to open the app in a
 
